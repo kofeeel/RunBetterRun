@@ -45,8 +45,10 @@ HRESULT MainGame::Init()
 	DataManager::GetInstance()->Init();	
 	SceneManager::GetInstance()->AddScene("MapEditorScene",new MapEditor());
 	SceneManager::GetInstance()->AddScene("OpeningScene",new OpeningScene());
-	SceneManager::GetInstance()->AddScene("MainGameScene",new MainGameScene(TEXT("Map/First.dat")));
-	SceneManager::GetInstance()->AddScene("ReGameScene",new MainGameScene(TEXT("Map/Second.dat")));
+	SceneManager::GetInstance()->AddScene("MainGameScene",new MainGameScene(TEXT("Map/TestMap.dat")));
+	SceneManager::GetInstance()->AddScene("ReGameScene",new MainGameScene(TEXT("Map/TestMap2.dat")));
+	//SceneManager::GetInstance()->AddScene("MainGameScene",new MainGameScene(TEXT("Map/First.dat")));
+	//SceneManager::GetInstance()->AddScene("ReGameScene",new MainGameScene(TEXT("Map/Second.dat")));
 	SceneManager::GetInstance()->AddScene("GameStartScene",new GameStartScene());
 	SceneManager::GetInstance()->AddScene("LossLifeScene",new LossLifeScene());
 	SceneManager::GetInstance()->AddScene("JumpscareScene",new JumpscareScene());

@@ -94,6 +94,7 @@ private:
 	void RenderObstacles(HDC hdc);
 	void RenderDragArea(HDC hdc);
 	void RenderRightDragArea(HDC hdc);
+	void RenderTileBorders(HDC hdc);
 	void RenderUI(HDC hdc);
 
 public:

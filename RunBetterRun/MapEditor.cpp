@@ -206,6 +206,7 @@ void MapEditor::Render(HDC hdc)
 	RenderSampleTiles(hdc);
 	RenderSampleSprites(hdc);
 	RenderRightDragArea(hdc);
+	RenderTileBorders(hdc);
 	RenderUI(hdc);
 }
 
@@ -808,6 +809,70 @@ void MapEditor::RenderRightDragArea(HDC hdc)
 		DeleteObject(dragPen);
 	}
 }
+void MapEditor::RenderTileBorders(HDC hdc)
+{
+	if(!sampleTileImage) return;
+
+	// 타일 크기 계산 (확대/축소 적용)
+	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileSize = min(tileWidth,tileHeight);
+
+	// 화면에 보이는 타일 범위 
+	int startX = max(0,(int)viewportOffset.x);
+	int startY = max(0,(int)viewportOffset.y);
+	int endX = min(mapWidth,(int)(viewportOffset.x + mapWidth / zoomLevel) + 1);
+	int endY = min(mapHeight,(int)(viewportOffset.y + mapHeight / zoomLevel) + 1);
+
+	// 타일 렌더링
+	for(int y = startY; y < endY; y++) {
+		for(int x = startX; x < endX; x++) {
+			// 스크린 좌표 계산
+			POINT screenPos = TileToScreen({x,y});
+			if(screenPos.x < 0 || screenPos.y < 0) continue;
+
+			// 타일 정보 가져오기
+			int index = y * mapWidth + x;
+			if(index >= tiles.size()) continue;
+
+			// 타일 유형에 따라 테두리 색상 결정
+			COLORREF borderColor;
+			switch(tiles[index].roomType) {
+			case RoomType::WALL:
+			borderColor = RGB(139,69,19);  // 갈색 (벽)
+			break;
+			case RoomType::FLOOR:
+			borderColor = RGB(0,128,0);    // 녹색 (바닥)
+			break;
+			case RoomType::START:
+			borderColor = RGB(0,0,255);    // 파란색 (시작 지점)
+			break;
+			case RoomType::GOAL:
+			borderColor = RGB(255,215,0);  // 금색 (목표 지점)
+			break;
+			case RoomType::NONE:
+			default:
+			borderColor = RGB(128,128,128); // 회색 (없음)
+			break;
+			}
+
+			// 테두리 그리기
+			HPEN borderPen = CreatePen(PS_SOLID,2,borderColor);
+			HPEN oldPen = (HPEN)SelectObject(hdc,borderPen);
+			SelectObject(hdc,GetStockObject(NULL_BRUSH)); // 투명 브러시
+
+			Rectangle(hdc,
+				screenPos.x,
+				screenPos.y,
+				screenPos.x + tileSize,
+				screenPos.y + tileSize);
+
+			SelectObject(hdc,oldPen);
+			DeleteObject(borderPen);
+		}
+	}
+}
+
 void MapEditor::RenderUI(HDC hdc)
 {
 	// 정보 패널 배경 (상단에 배치)
