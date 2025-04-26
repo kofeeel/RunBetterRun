@@ -63,51 +63,59 @@ void Elevator::Update(void)
 	switch(status)
 	{
 	case Elevator::DoorStatus::Init:
-	if(waitTime > 0)
-		waitTime -= deltaTime;
-	else
-		status = DoorStatus::Opening;
-	break;
+		if(waitTime > 0)
+			waitTime -= deltaTime;
+		else
+			status = DoorStatus::Opening;
+		break;
 
 	case Elevator::DoorStatus::Closing:
-	if(Close(deltaTime))
-		status = DoorStatus::Close;
-	break;
+		if(Close(deltaTime))
+			status = DoorStatus::Close;
+		break;
 
 	case Elevator::DoorStatus::Opening:
-	if(Open(deltaTime))
-		status = DoorStatus::Open;
-	break;
+		if(Open(deltaTime))
+			status = DoorStatus::Open;
+		break;
 
 	case Elevator::DoorStatus::FinalClosing:
-	if(Close(deltaTime))
-	{
-		waitTime = 3.5f;
-		status = DoorStatus::Exit;
-	}
-	break;
+		if(waitTime > 0)
+			waitTime -= deltaTime;
+		else
+		{
+			if(Close(deltaTime))
+			{
+				waitTime = 3.5f;
+				status = DoorStatus::Exit;
+			}
+		}
+		break;
 
 	case Elevator::DoorStatus::FinalOpening:
-	if(Open(deltaTime))
-		status = DoorStatus::FinalOpen;
-	break;
+		if(Open(deltaTime))
+		{
+			waitTime = 1.2f;
+			status = DoorStatus::FinalClosing;
+		}
+		break;
 
 	case Elevator::DoorStatus::Exit:
-	if(waitTime > 0)
-		waitTime -= deltaTime;
-	else
-	{
-		MapData* md = MapManager::GetInstance()->GetMapData();
-		FPOINT player = Player::GetInstance()->GetCameraPos();
-		if(md->tiles[INT(player.y) * md->width + INT(player.x)].roomType == RoomType::START)
-			SceneManager::GetInstance()->ChangeScene("EndingScene");
+		if(waitTime > 0)
+			waitTime -= deltaTime;
 		else
-			SceneManager::GetInstance()->ChangeScene("JumpscareScene");
-		status = DoorStatus::Lock;
-		break;
-	}
+		{
+			MapData* md = MapManager::GetInstance()->GetMapData();
+			FPOINT player = Player::GetInstance()->GetCameraPos();
+			if(md->tiles[INT(player.y) * md->width + INT(player.x)].roomType == RoomType::START)
+				SceneManager::GetInstance()->ChangeScene("EndingScene");
+			else
+				SceneManager::GetInstance()->ChangeScene("JumpscareScene");
+			status = DoorStatus::Lock;
+			break;
+		}
 	default:
-	break;
+		break;
 	}
 }
 
