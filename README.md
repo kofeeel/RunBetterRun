@@ -33,7 +33,7 @@
 ### 에디터 개발
 
 #### 레퍼런스 에디터 
-<a href="https://github.com/leebo155/RunBetterRun/blob/main/Image/reference_editor.png">
+<a href="https://github.com/kofeeel/RunBetterRun/tree/main/RunBetterRun/Image/image&20(1)">
   <img src="RunBetterRun/Image/image%20(1).png" alt="레퍼런스 에디터" width="600">
 </a>
 
