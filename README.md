@@ -44,7 +44,8 @@
 <a href="https://github.com/leebo155/RunBetterRun/blob/main/Image/editor.png">
   <img src="RunBetterRun/Image/image.png" alt="에디터" width="900">
 </a>
-##### 개요
+
+#### 개요
 * 맵에디터 정리글 <https://kofeeel.tistory.com/58>
 
 #### 에디터 기능 
