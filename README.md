@@ -41,7 +41,8 @@
 <a href="https://github.com/leebo155/RunBetterRun/blob/main/Image/editor.png">
   <img src="RunBetterRun/Image/image.png" alt="에디터" width="900">
 </a>
-
+##### 개요
+* 맵에디터 정리글 <https://kofeeel.tistory.com/58>
 
 #### 에디터 기능 
 * 오브젝트(엔티티) 타입 별로 모드를 구분해서 다른 타입의 오브젝트는 삭제할 수 없도록 함
@@ -49,9 +50,6 @@
 * 샘플영역에서 배치할 타일, 오브젝트를 볼 수 있음
 * 맵 저장시 가장자리는 항상 벽을 생성하게 함: Ray의 거리가 무한대가 되지 않고 충돌할 수 있게 예외처리
 * 플레이어 시작위치의 타일은 항상 바닥 타입으로 설정하게 함 : Ray의 거리가 0이 되지않게 예외처리
-
-##### 개요
-* 맵에디터 정리글 <https://kofeeel.tistory.com/58>
 
 #### 바이너리 파일 시스템 구현
 
