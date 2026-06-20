@@ -409,3 +409,6 @@ tools/maptest/*.i
 tools/maptest/out*.dat
 out*.dat
 Map/
+
+# Claude/superpowers 기획·설계 문서 (개인 작업물)
+docs/superpowers/
