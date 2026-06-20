@@ -156,6 +156,12 @@
     <ClCompile Include="MapEditor.cpp">
       <Filter>Core\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="EditorModel.cpp">
+      <Filter>Core\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorSerializer.cpp">
+      <Filter>Core\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="MinimapUI.cpp">
       <Filter>InGame\UI</Filter>
     </ClCompile>
@@ -306,6 +312,12 @@
       <Filter>InGame\Map</Filter>
     </ClInclude>
     <ClInclude Include="MapEditor.h">
+      <Filter>Core\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorModel.h">
+      <Filter>Core\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorSerializer.h">
       <Filter>Core\Editor</Filter>
     </ClInclude>
     <ClInclude Include="MinimapUI.h">
