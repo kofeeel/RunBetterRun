@@ -28,8 +28,8 @@ void EditorSerializer::ConvertToDataManager(const EditorModel& model)
 
 	// 아이템, 몬스터, 장애물 데이터 추가
 	for(const auto& sprite : model.Sprites()) {
-		ItemData item;
-		MonsterData monster;
+		ItemData item{};
+		MonsterData monster{};
 		switch (sprite.type)
 		{
 			case SpriteType::KEY: case SpriteType::ITEM: case SpriteType::NONE:
@@ -45,7 +45,7 @@ void EditorSerializer::ConvertToDataManager(const EditorModel& model)
 	}
 
 	for(const auto& obstacle : model.Obstacles()) {
-		ObstacleData obsData;
+		ObstacleData obsData{};
 		obsData.pos = obstacle.pos;
 		obsData.dir = obstacle.dir;
 		obsData.id = obstacle.id;

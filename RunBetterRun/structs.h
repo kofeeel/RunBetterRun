@@ -136,7 +136,7 @@ typedef struct tagFileHeader
 		monsterCount = 0;
 		obstacleCount = 0;
 		startPos = {0.0f,0.0f};
-		texturePath[0] = L'\0';
+		ZeroMemory(texturePath, sizeof(texturePath));
 		textureTileSize = 0;
 		textureTileRowSize = 0;
 		textureTileColumnSize = 0;
