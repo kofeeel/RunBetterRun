@@ -11,8 +11,6 @@ MapEditor::MapEditor():
 	selectedTileType(RoomType::FLOOR),
 	selectedObstacleDir(Direction::EAST),
 	selectedTile({0,0}),
-	mapWidth(VISIBLE_MAP_WIDTH),
-	mapHeight(VISIBLE_MAP_HEIGHT),
 	zoomLevel(1.0f),
 	viewportOffset({0.0f,0.0f}),
 	isDragging(false),
@@ -36,29 +34,7 @@ MapEditor::~MapEditor()
 
 HRESULT MapEditor::Init()
 {
-	tiles.resize(mapWidth * mapHeight);
-
-	// 타일 초기화
-	for(int y = 0; y < mapHeight; y++) {
-		for(int x = 0; x < mapWidth; x++) {
-			int index = y * mapWidth + x;
-
-			if(x == 0 || y == 0 || x == mapWidth - 1 || y == mapHeight - 1) {
-				tiles[index].roomType = RoomType::WALL;
-				tiles[index].tilePos = 8;
-			} else {
-				tiles[index].roomType = RoomType::FLOOR;
-				tiles[index].tilePos = 17;
-			}
-		}
-	}
-
-	// 시작 위치 초기화
-	startPosition = {mapWidth / 2.0f,mapHeight / 2.0f};
-	int startIndex = (int)startPosition.y * mapWidth + (int)startPosition.x;
-	if(startIndex < tiles.size()) {
-		tiles[startIndex].roomType = RoomType::START;
-	}
+	m_model.InitDefault(VISIBLE_MAP_WIDTH,VISIBLE_MAP_HEIGHT);
 
 	// 샘플 타일 이미지 로드
 	sampleTileImage = ImageManager::GetInstance()->AddImage(
@@ -119,9 +95,6 @@ HRESULT MapEditor::Init()
 
 void MapEditor::Release()
 {
-	tiles.clear();
-	editorSprites.clear();
-	editorObstacles.clear();
 	DataManager::GetInstance()->ClearAllData();
 }
 
@@ -215,15 +188,15 @@ void MapEditor::RenderMapTiles(HDC hdc)
 	if(!sampleTileImage) return;
 
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
 	// 화면에 보이는 타일 범위 
 	int startX = max(0,(int)viewportOffset.x);
 	int startY = max(0,(int)viewportOffset.y);
-	int endX = min(mapWidth,(int)(viewportOffset.x + mapWidth / zoomLevel) + 1);
-	int endY = min(mapHeight,(int)(viewportOffset.y + mapHeight / zoomLevel) + 1);
+	int endX = min(m_model.Width(),(int)(viewportOffset.x + m_model.Width() / zoomLevel) + 1);
+	int endY = min(m_model.Height(),(int)(viewportOffset.y + m_model.Height() / zoomLevel) + 1);
 
 	// 타일 렌더링
 	for(int y = startY; y < endY; y++) {
@@ -232,10 +205,10 @@ void MapEditor::RenderMapTiles(HDC hdc)
 			POINT screenPos = TileToScreen({x,y});
 
 			// 타일 정보 가져오기
-			int index = y * mapWidth + x;
-			if(index >= tiles.size()) continue;
+			int index = y * m_model.Width() + x;
+			if(index >= m_model.Tiles().size()) continue;
 
-			int tilePos = tiles[index].tilePos;
+			int tilePos = m_model.Tiles()[index].tilePos;
 			int frameX = tilePos % SAMPLE_TILE_X;
 			int frameY = tilePos / SAMPLE_TILE_X;
 
@@ -249,7 +222,7 @@ void MapEditor::RenderMapTiles(HDC hdc)
 			);
 
 			// 시작 위치 표시
-			if(tiles[index].roomType == RoomType::START) {
+			if(m_model.Tiles()[index].roomType == RoomType::START) {
 				HBRUSH startBrush = CreateSolidBrush(RGB(0,200,0));
 				HBRUSH oldBrush = (HBRUSH)SelectObject(hdc,startBrush);
 				Ellipse(
@@ -309,8 +282,8 @@ void MapEditor::RenderMapTiles(HDC hdc)
 			// 드래그 영역 표시
 			if(isDraggingArea && (currentMode == EditMode::TILE || currentMode == EditMode::OBSTACLE))
 			{
-				int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-				int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+				int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+				int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 				int tileSize = min(tileWidth,tileHeight);
 
 				POINT startScreen = TileToScreen(dragStart);
@@ -622,18 +595,18 @@ void MapEditor::RenderSampleSprites(HDC hdc)
 void MapEditor::RenderSprites(HDC hdc)
 {
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
-	for(const auto& sprite : editorSprites) {
+	for(const auto& sprite : m_model.Sprites()) {
 		// 스프라이트 위치 (실제 좌표)
 		float spriteX = sprite.pos.x;
 		float spriteY = sprite.pos.y;
 
 		// 화면 영역 내에 있는지 확인
-		if(spriteX < viewportOffset.x || spriteX >= viewportOffset.x + mapWidth / zoomLevel ||
-			spriteY < viewportOffset.y || spriteY >= viewportOffset.y + mapHeight / zoomLevel)
+		if(spriteX < viewportOffset.x || spriteX >= viewportOffset.x + m_model.Width() / zoomLevel ||
+			spriteY < viewportOffset.y || spriteY >= viewportOffset.y + m_model.Height() / zoomLevel)
 			continue;
 
 		// 스크린 좌표 계산 (타일 위치가 아닌 실제 위치 기준)
@@ -684,18 +657,18 @@ void MapEditor::RenderSprites(HDC hdc)
 void MapEditor::RenderObstacles(HDC hdc)
 {
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
-	for(const auto& obstacle : editorObstacles) {
+	for(const auto& obstacle : m_model.Obstacles()) {
 		// 장애물 위치
 		int x = obstacle.pos.x;
 		int y = obstacle.pos.y;
 
 		// 화면 영역 내에 있는지 확인
-		if(x < viewportOffset.x || x >= viewportOffset.x + mapWidth / zoomLevel ||
-			y < viewportOffset.y || y >= viewportOffset.y + mapHeight / zoomLevel)
+		if(x < viewportOffset.x || x >= viewportOffset.x + m_model.Width() / zoomLevel ||
+			y < viewportOffset.y || y >= viewportOffset.y + m_model.Height() / zoomLevel)
 			continue;
 
 		// 스크린 좌표 계산
@@ -748,8 +721,8 @@ void MapEditor::RenderDragArea(HDC hdc)
 	if(!isDraggingArea || !(currentMode == EditMode::TILE || currentMode == EditMode::OBSTACLE))
 		return;
 
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
 	POINT startScreen = TileToScreen(dragStart);
@@ -781,8 +754,8 @@ void MapEditor::RenderRightDragArea(HDC hdc)
 	if(!isRightDraggingArea)
 		return;
 
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
 	POINT startScreen = TileToScreen(rightDragStart);
@@ -814,15 +787,15 @@ void MapEditor::RenderTileBorders(HDC hdc)
 	if(!sampleTileImage) return;
 
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+	int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+	int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 	int tileSize = min(tileWidth,tileHeight);
 
 	// 화면에 보이는 타일 범위 
 	int startX = max(0,(int)viewportOffset.x);
 	int startY = max(0,(int)viewportOffset.y);
-	int endX = min(mapWidth,(int)(viewportOffset.x + mapWidth / zoomLevel) + 1);
-	int endY = min(mapHeight,(int)(viewportOffset.y + mapHeight / zoomLevel) + 1);
+	int endX = min(m_model.Width(),(int)(viewportOffset.x + m_model.Width() / zoomLevel) + 1);
+	int endY = min(m_model.Height(),(int)(viewportOffset.y + m_model.Height() / zoomLevel) + 1);
 
 	// 타일 렌더링
 	for(int y = startY; y < endY; y++) {
@@ -832,12 +805,12 @@ void MapEditor::RenderTileBorders(HDC hdc)
 			if(screenPos.x < 0 || screenPos.y < 0) continue;
 
 			// 타일 정보 가져오기
-			int index = y * mapWidth + x;
-			if(index >= tiles.size()) continue;
+			int index = y * m_model.Width() + x;
+			if(index >= m_model.Tiles().size()) continue;
 
 			// 타일 유형에 따라 테두리 색상 결정
 			COLORREF borderColor;
-			switch(tiles[index].roomType) {
+			switch(m_model.Tiles()[index].roomType) {
 			case RoomType::WALL:
 			borderColor = RGB(139,69,19);  // 갈색 (벽)
 			break;
@@ -1123,8 +1096,8 @@ void MapEditor::HandleInput()
 
 			// 맵 위치가 유효한 경우만 처리
 			if(screenPos.x >= 0 && screenPos.y >= 0) {
-				int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-				int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+				int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+				int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 				int tileSize = min(tileWidth,tileHeight);
 
 				// 타일 영역 계산
@@ -1183,181 +1156,58 @@ void MapEditor::HandleInput()
 
 void MapEditor::PlaceTile(int x,int y)
 {
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
-		return;
-
-	int tileIndex = selectedTile.y * SAMPLE_TILE_X + selectedTile.x;
-	int index = y * mapWidth + x;
-
-	// 배열 범위 검사
-	if(index >= 0 && index < tiles.size()) {
-		tiles[index].tilePos = tileIndex;
-		tiles[index].roomType = selectedTileType;
-	}
+	m_model.PlaceTile(x,y,selectedTile.y * SAMPLE_TILE_X + selectedTile.x,selectedTileType);
 }
 
 void MapEditor::PlaceStart(int x,int y)
 {
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
-		return;
-
-	for(size_t i = 0; i < tiles.size(); i++) {
-		if(tiles[i].roomType == RoomType::START) {
-			tiles[i].roomType = RoomType::FLOOR;
-		}
-	}
-
-	// 새 시작 위치 설정
-	int index = y * mapWidth + x;
-	if(index >= 0 && index < tiles.size()) {
-		tiles[index].roomType = RoomType::START;
-		startPosition = {x + 0.5f,y + 0.5f};
-	}
+	m_model.PlaceStart(x,y);
 }
 
 void MapEditor::PlaceObstacle(int x,int y)
 {
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
-		return;
-
-	for(size_t i = 0; i < editorObstacles.size(); i++) {
-		if(editorObstacles[i].pos.x == x && editorObstacles[i].pos.y == y) {
-			return;
-		}
-	}
-
-	// Texture* obstacleTexture = TextureManager::GetInstance()->GetTexture(TEXT("Image/jewel.bmp"));
-	Obstacle newObstacle;
-	newObstacle.id = 1000 + selectedSprite.x;
-	newObstacle.pos = {x,y};
-	// newObstacle.texture = obstacleTexture;
-	newObstacle.dir = selectedObstacleDir;
-
-
-	editorObstacles.push_back(newObstacle);
+	m_model.PlaceObstacle(x,y,1000 + selectedSprite.x,selectedObstacleDir);
 }
 
 void MapEditor::PlaceMonster(int x,int y)
 {
 	// 맵 범위 검사
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
+	if(x < 0 || x >= m_model.Width() || y < 0 || y >= m_model.Height())
 		return;
 	FPOINT spritePos = CalculateSpritePosition(x,y);
 	if(spritePos.x < 0)		return;
-	const float MIN_DISTANCE = 0.2f; // 최소 거리 (타일 크기의 20%)
 
-	for(const auto& sprite : editorSprites)
-	{
-		float dx = sprite.pos.x - spritePos.x;
-		float dy = sprite.pos.y - spritePos.y;
-		float distance = sqrt(dx*dx + dy*dy);
-
-		if(distance < MIN_DISTANCE)
-		{
-			return;
-		}
-	}
-
-	/*Texture* monsterTexture = TextureManager::GetInstance()->GetTexture(TEXT("Image/boss.bmp"));
-	if(!monsterTexture)
-	{
-		MessageBox(g_hWnd,TEXT("Monster texture not found!"),TEXT("Error"),MB_OK);
-		return;
-	}*/
-
-	Sprite newSprite;
-	newSprite.id = 100 + selectedSprite.x ;
-	newSprite.pos = spritePos;
-	newSprite.type = SpriteType::MONSTER;
-	//newSprite.texture = monsterTexture;
-
-	editorSprites.push_back(newSprite);
+	m_model.PlaceMonster(spritePos,100 + selectedSprite.x);
 }
 
 void MapEditor::PlaceItem(int x,int y)
 {
 	// 맵 범위 검사
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
+	if(x < 0 || x >= m_model.Width() || y < 0 || y >= m_model.Height())
 		return;
 
 	FPOINT spritePos = CalculateSpritePosition(x,y);
 	if(spritePos.x < 0)	return;
 
-	// 근처에 다른 스프라이트가 있는지 확인
-	const float MIN_DISTANCE = 0.2f; // 최소 거리 (타일 크기의 20%)
-
-	for(const auto& sprite : editorSprites) {
-		float dx = sprite.pos.x - spritePos.x;
-		float dy = sprite.pos.y - spritePos.y;
-		float distance = sqrt(dx*dx + dy*dy);
-
-		if(distance < MIN_DISTANCE) {
-			return;
-		}
-	}
-
-	/*Texture* keyTexture = TextureManager::GetInstance()->GetTexture(TEXT("Image/phone.bmp"));
-	if(!keyTexture) {
-		MessageBox(g_hWnd,TEXT("Item texture not found!"),TEXT("Error"),MB_OK);
-		return;
-	}*/
-
-	//sprite.id 로 정보저장 (아이템,몬스터,장애물) 
-	Sprite newSprite;
-	newSprite.pos = spritePos;
-	newSprite.id = selectedSprite.x;
-	switch(newSprite.id)
-	{
-	case 0:
-		newSprite.type = SpriteType::KEY;
-		break;
-	case 1: case 2: case 3:
-		newSprite.type = SpriteType::ITEM;
-		break;
-	default:
-		newSprite.type = SpriteType::NONE;
-		break;
-	}
-
-	editorSprites.push_back(newSprite);
+	m_model.PlaceItem(spritePos,selectedSprite.x);
 }
 
 void MapEditor::RemoveObject(int x,int y)
 {
 	// 맵 범위 검사
-	if(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
+	if(x < 0 || x >= m_model.Width() || y < 0 || y >= m_model.Height())
 		return;
 
 	// 현재 모드에 따라 다른 삭제 동작
 	switch(currentMode) {
 	case EditMode::TILE:
-	// 타일을 기본 바닥으로 변경 (가장자리는 벽 유지)
-	{
-		int index = y * mapWidth + x;
-		if(index >= 0 && index < tiles.size()) {
-			// 가장자리는 벽으로 유지
-			if(x == 0 || y == 0 || x == mapWidth - 1 || y == mapHeight - 1) {
-				tiles[index].roomType = RoomType::WALL;
-				tiles[index].tilePos = 4; // 벽 타일 인덱스
-			} else {
-				tiles[index].roomType = RoomType::FLOOR;
-				tiles[index].tilePos = 10; // 기본 바닥 타일
-			}
-		}
-	}
+	m_model.RemoveTileAt(x,y);
 	break;
 
 	case EditMode::START:
 	break;
 	case EditMode::OBSTACLE:
-	for(auto it = editorObstacles.begin(); it != editorObstacles.end(); ) {
-		if(it->pos.x == x && it->pos.y == y) {
-			it = editorObstacles.erase(it);
-		} else
-		{
-			++it;
-		}
-	}
+	m_model.RemoveObstacleAt(x,y);
 	break;
 
 	case EditMode::MONSTER:
@@ -1368,8 +1218,8 @@ void MapEditor::RemoveObject(int x,int y)
 		POINT tileScreenPos = TileToScreen({x,y});
 		if(tileScreenPos.x < 0 || tileScreenPos.y < 0) return; // 예외 처리
 
-		int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+		int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+		int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 		int tileSize = min(tileWidth,tileHeight);
 
 		// 타일 내에서의 상대 위치 (0.0 ~ 1.0)
@@ -1386,29 +1236,7 @@ void MapEditor::RemoveObject(int x,int y)
 			y + relativeY
 		};
 
-		// 가장 가까운 스프라이트 찾기
-		float minDistance = FLT_MAX;
-		auto closestSprite = editorSprites.end();
-
-		for(auto it = editorSprites.begin(); it != editorSprites.end(); ++it) {
-			// 현재 타일 내에 있는 스프라이트만 고려
-			if((int)it->pos.x == x || (int)it->pos.y == y) {
-				float dx = it->pos.x - mouseWorldPos.x;
-				float dy = it->pos.y - mouseWorldPos.y;
-				float distance = sqrt(dx*dx + dy*dy);
-
-				if(distance < minDistance) {
-					minDistance = distance;
-					closestSprite = it;
-				}
-			}
-		}
-
-		// 일정 거리 내에 있는 경우에만 삭제
-		const float DELETE_RADIUS = 0.3f; // 삭제 범위 (타일 크기의 30%)
-		if(minDistance <= DELETE_RADIUS && closestSprite != editorSprites.end()) {
-			editorSprites.erase(closestSprite);
-		}
+		m_model.RemoveNearestSprite(x,y,mouseWorldPos);
 	}
 	break;
 	}
@@ -1424,8 +1252,8 @@ void MapEditor::RemoveTilesInDragArea()
 	// 맵 경계 체크
 	startX = max(0,startX);
 	startY = max(0,startY);
-	endX = min(mapWidth - 1,endX);
-	endY = min(mapHeight - 1,endY);
+	endX = min(m_model.Width() - 1,endX);
+	endY = min(m_model.Height() - 1,endY);
 
 	for(int y = startY; y <= endY; y++)
 	{
@@ -1444,8 +1272,8 @@ POINT MapEditor::ScreenToTile(POINT screenPos)
 	if(PtInRect(&mapArea,screenPos))
 	{
 		// 타일 크기 계산
-		int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+		int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+		int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 		int tileSize = min(tileWidth,tileHeight);
 
 		if(tileSize <= 0) return result;
@@ -1459,8 +1287,8 @@ POINT MapEditor::ScreenToTile(POINT screenPos)
 		result.y = (int)(viewportOffset.y + relY);
 
 		// 맵 범위 내로 제한
-		result.x = max(0,min(result.x,mapWidth - 1));
-		result.y = max(0,min(result.y,mapHeight - 1));
+		result.x = max(0,min(result.x,m_model.Width() - 1));
+		result.y = max(0,min(result.y,m_model.Height() - 1));
 	}
 
 	return result;
@@ -1472,11 +1300,11 @@ POINT MapEditor::TileToScreen(POINT tilePos)
 	POINT result = {-1,-1};
 
 	// 타일 위치가 맵 범위 내에 있는지 확인
-	if(tilePos.x >= 0 && tilePos.x < mapWidth && tilePos.y >= 0 && tilePos.y < mapHeight)
+	if(tilePos.x >= 0 && tilePos.x < m_model.Width() && tilePos.y >= 0 && tilePos.y < m_model.Height())
 	{
 		// 타일 크기 계산
-		int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+		int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+		int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 		int tileSize = min(tileWidth,tileHeight);
 
 		if(tileSize <= 0) return result;
@@ -1511,8 +1339,8 @@ FPOINT MapEditor::CalculateSpritePosition(int x,int y)
 		if(tileScreenPos.x < 0 || tileScreenPos.y < 0)
 			return {-1,-1}; // 유효하지 않은 위치 반환
 
-		int tileWidth = (mapArea.right - mapArea.left) / (mapWidth / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (mapHeight / zoomLevel);
+		int tileWidth = (mapArea.right - mapArea.left) / (m_model.Width() / zoomLevel);
+		int tileHeight = (mapArea.bottom - mapArea.top) / (m_model.Height() / zoomLevel);
 		int tileSize = min(tileWidth,tileHeight);
 
 		// 타일 내에서의 상대 위치 (0.0 ~ 1.0)
@@ -1540,72 +1368,7 @@ void MapEditor::ChangeEditMode(EditMode mode)
 
 void MapEditor::ResizeMap(int newWidth,int newHeight)
 {
-	if(newWidth <= 0 || newHeight <= 0)
-		return;
-
-	// 새 타일 배열
-	vector<Room> newTiles(newWidth * newHeight);
-
-	// 기본값으로 초기화
-	for(int y = 0; y < newHeight; y++) {
-		for(int x = 0; x < newWidth; x++) {
-			int index = y * newWidth + x;
-			if(x == 0 || y == 0 || x == newWidth - 1 || y == newHeight - 1) {
-				newTiles[index].roomType = RoomType::WALL;
-				newTiles[index].tilePos = 4; // 벽 타일
-			} else {
-				newTiles[index].roomType = RoomType::FLOOR;
-				newTiles[index].tilePos = 10; // 바닥 타일
-			}
-		}
-	}
-
-	// 기존 맵 데이터 복사
-	int copyWidth = min(mapWidth,newWidth);
-	int copyHeight = min(mapHeight,newHeight);
-
-	for(int y = 0; y < copyHeight; y++) {
-		for(int x = 0; x < copyWidth; x++) {
-			int oldIndex = y * mapWidth + x;
-			int newIndex = y * newWidth + x;
-			if(oldIndex < tiles.size() && newIndex < newTiles.size()) {
-				newTiles[newIndex] = tiles[oldIndex];
-			}
-		}
-	}
-
-	// 맵 정보 업데이트
-	mapWidth = newWidth;
-	mapHeight = newHeight;
-	tiles = newTiles;
-
-	// 시작 위치가 맵 안에 있는지 확인
-	if(startPosition.x >= newWidth || startPosition.y >= newHeight) {
-		startPosition = {newWidth / 2.0f,newHeight / 2.0f};
-
-		// 시작 타일로 설정
-		int index = (int)startPosition.y * newWidth + (int)startPosition.x;
-		if(index < tiles.size()) {
-			tiles[index].roomType = RoomType::START;
-		}
-	}
-
-	// 맵 범위를 벗어난 오브젝트 제거
-	for(auto it = editorSprites.begin(); it != editorSprites.end(); ) {
-		if(it->pos.x >= newWidth || it->pos.y >= newHeight) {
-			it = editorSprites.erase(it);
-		} else {
-			++it;
-		}
-	}
-
-	for(auto it = editorObstacles.begin(); it != editorObstacles.end(); ) {
-		if(it->pos.x >= newWidth || it->pos.y >= newHeight) {
-			it = editorObstacles.erase(it);
-		} else {
-			++it;
-		}
-	}
+	m_model.Resize(newWidth,newHeight);
 
 	// 뷰포트 리셋
 	viewportOffset = {0.0f,0.0f};
@@ -1627,8 +1390,8 @@ void MapEditor::Zoom(float delta)
 
 		// 뷰포트 조정
 		POINT newScreenPos = TileToScreen(tilePos);
-		float offsetX = (mousePos.x - newScreenPos.x) / (float)(mapArea.right - mapArea.left) * mapWidth / zoomLevel;
-		float offsetY = (mousePos.y - newScreenPos.y) / (float)(mapArea.bottom - mapArea.top) * mapHeight / zoomLevel;
+		float offsetX = (mousePos.x - newScreenPos.x) / (float)(mapArea.right - mapArea.left) * m_model.Width() / zoomLevel;
+		float offsetY = (mousePos.y - newScreenPos.y) / (float)(mapArea.bottom - mapArea.top) * m_model.Height() / zoomLevel;
 
 		viewportOffset.x += offsetX;
 		viewportOffset.y += offsetY;
@@ -1639,8 +1402,8 @@ void MapEditor::Zoom(float delta)
 	}
 
 	// 뷰포트 범위 제한
-	float maxOffsetX = max(0.0f,mapWidth - mapWidth / zoomLevel);
-	float maxOffsetY = max(0.0f,mapHeight - mapHeight / zoomLevel);
+	float maxOffsetX = max(0.0f,m_model.Width() - m_model.Width() / zoomLevel);
+	float maxOffsetY = max(0.0f,m_model.Height() - m_model.Height() / zoomLevel);
 
 	viewportOffset.x = max(0.0f,min(viewportOffset.x,maxOffsetX));
 	viewportOffset.y = max(0.0f,min(viewportOffset.y,maxOffsetY));
@@ -1652,8 +1415,8 @@ void MapEditor::Scroll(float deltaX,float deltaY)
 	viewportOffset.y += deltaY;
 
 	// 뷰포트 범위 제한
-	float maxOffsetX = max(0.0f,mapWidth - mapWidth / zoomLevel);
-	float maxOffsetY = max(0.0f,mapHeight - mapHeight / zoomLevel);
+	float maxOffsetX = max(0.0f,m_model.Width() - m_model.Width() / zoomLevel);
+	float maxOffsetY = max(0.0f,m_model.Height() - m_model.Height() / zoomLevel);
 
 	viewportOffset.x = max(0.0f,min(viewportOffset.x,maxOffsetX));
 	viewportOffset.y = max(0.0f,min(viewportOffset.y,maxOffsetY));
@@ -1679,7 +1442,7 @@ void MapEditor::VerticalScroll(int delta)
 		viewportOffset.y = max(0.0f,viewportOffset.y - scrollAmount / zoomLevel);
 	} else
 	{
-		float maxY = max(0.0f,mapHeight - mapHeight / zoomLevel);
+		float maxY = max(0.0f,m_model.Height() - m_model.Height() / zoomLevel);
 		viewportOffset.y = min(maxY,viewportOffset.y + scrollAmount / zoomLevel);
 	}
 }
@@ -1693,7 +1456,7 @@ void MapEditor::HorizontalScroll(int delta)
 		viewportOffset.x = max(0.0f,viewportOffset.x - scrollAmount / zoomLevel);
 	} else
 	{
-		float maxX = max(0.0f,mapWidth - mapWidth / zoomLevel);
+		float maxX = max(0.0f,m_model.Width() - m_model.Width() / zoomLevel);
 		viewportOffset.x = min(maxX,viewportOffset.x + scrollAmount / zoomLevel);
 	}
 }
@@ -1708,8 +1471,8 @@ void MapEditor::ApplyTilesToDragArea()
 	// 맵 경계 체크
 	startX = max(0,startX);
 	startY = max(0,startY);
-	endX = min(mapWidth - 1,endX);
-	endY = min(mapHeight - 1,endY);
+	endX = min(m_model.Width() - 1,endX);
+	endY = min(m_model.Height() - 1,endY);
 
 	for(int y = startY; y <= endY; y++)
 	{
@@ -1740,16 +1503,7 @@ void MapEditor::ChangeObstacleDirection(Direction dir)
 void MapEditor::SaveMap(const wchar_t* filePath)
 {
 	// 가장자리 벽 처리 (기존 코드 유지)
-	for(int y = 0; y < mapHeight; y++) {
-		for(int x = 0; x < mapWidth; x++) {
-			if(x == 0 || x == mapWidth - 1 || y == 0 || y == mapHeight - 1)
-			{
-				int index = y * mapWidth + x;
-				tiles[index].roomType = RoomType::WALL;
-				tiles[index].tilePos = 12;
-			}
-		}
-	}
+	m_model.ForceBorderWalls(12);
 
 	// 데이터 변환 및 저장
 	ConvertToDataManager();
@@ -1810,33 +1564,7 @@ void MapEditor::LoadMap(const wchar_t* filePath)
 
 void MapEditor::ClearMap()
 {
-	// 기본 타일로 초기화
-	for(int y = 0; y < mapHeight; y++) {
-		for(int x = 0; x < mapWidth; x++) {
-			int index = y * mapWidth + x;
-			if(x == 0 || y == 0 || x == mapWidth - 1 || y == mapHeight - 1)
-			{
-				tiles[index].roomType = RoomType::WALL;
-				tiles[index].tilePos = 4; // 벽 타일 인덱스
-			} else
-			{
-				tiles[index].roomType = RoomType::FLOOR;
-				tiles[index].tilePos = 10; // 바닥 타일 인덱스
-			}
-		}
-	}
-
-	// 시작 위치 재설정
-	startPosition = {mapWidth / 2.0f,mapHeight / 2.0f};
-	int startIndex = (int)startPosition.y * mapWidth + (int)startPosition.x;
-	if(startIndex < tiles.size())
-	{
-		tiles[startIndex].roomType = RoomType::START;
-	}
-
-	// 스프라이트와 장애물 초기화
-	editorSprites.clear();
-	editorObstacles.clear();
+	m_model.Clear();
 
 	// 뷰포트 초기화
 	viewportOffset = {0.0f,0.0f};
@@ -1850,12 +1578,12 @@ void MapEditor::ConvertToDataManager()
 	// DataManager에 데이터 설정
 
 	DataManager::GetInstance()->ClearAllData();
-	DataManager::GetInstance()->SetMapData(tiles,mapWidth,mapHeight);
+	DataManager::GetInstance()->SetMapData(m_model.Tiles(),m_model.Width(),m_model.Height());
 	DataManager::GetInstance()->SetTextureInfo(L"Image/tiles.bmp",128,SAMPLE_TILE_X,SAMPLE_TILE_Y);
-	DataManager::GetInstance()->SetStartPosition(startPosition);
+	DataManager::GetInstance()->SetStartPosition(m_model.StartPosition());
 
 	// 아이템, 몬스터, 장애물 데이터 추가
-	for(const auto& sprite : editorSprites) {
+	for(const auto& sprite : m_model.Sprites()) {
 		ItemData item;
 		MonsterData monster;
 		switch (sprite.type)
@@ -1872,7 +1600,7 @@ void MapEditor::ConvertToDataManager()
 		}
 	}
 
-	for(const auto& obstacle : editorObstacles) {
+	for(const auto& obstacle : m_model.Obstacles()) {
 		ObstacleData obsData;
 		obsData.pos = obstacle.pos;
 		obsData.dir = obstacle.dir;
@@ -1889,17 +1617,15 @@ void MapEditor::ConvertFromDataManager()
 	if(DataManager::GetInstance()->GetMapData(mapData))
 	{
 		// 타일 데이터 복원
-		mapWidth = mapData.width;
-		mapHeight = mapData.height;
-		tiles = mapData.tiles;
+		m_model.SetTiles(mapData.tiles,mapData.width,mapData.height);
 	}
 
 	// 시작 위치 복원
-	startPosition = DataManager::GetInstance()->GetStartPosition();
+	m_model.SetStartPosition(DataManager::GetInstance()->GetStartPosition());
 
 	// 데이터 초기화
-	editorSprites.clear();
-	editorObstacles.clear();
+	vector<Sprite> loadedSprites;
+	vector<Obstacle> loadedObstacles;
 
 	const auto& items = DataManager::GetInstance()->GetItems();
 	for(const auto& item : items) {
@@ -1925,7 +1651,7 @@ void MapEditor::ConvertFromDataManager()
 		//sprite.aniInfo = item.aniInfo;
 
 		// 스프라이트 목록에 추가
-		editorSprites.push_back(sprite);
+		loadedSprites.push_back(sprite);
 	}
 
 	// 몬스터 복원
@@ -1942,7 +1668,7 @@ void MapEditor::ConvertFromDataManager()
 		/*sprite.aniInfo = monster.aniInfo;*/
 
 		// 스프라이트 목록에 추가
-		editorSprites.push_back(sprite);
+		loadedSprites.push_back(sprite);
 	}
 
 	// 장애물 복원
@@ -1961,8 +1687,11 @@ void MapEditor::ConvertFromDataManager()
 		obstacle.aniInfo = {0.0f,0.0f,{128,128},{8,1},{0,0}};*/
 
 		// 장애물 목록에 추가
-		editorObstacles.push_back(obstacle);
+		loadedObstacles.push_back(obstacle);
 	}
+
+	m_model.SetSprites(loadedSprites);
+	m_model.SetObstacles(loadedObstacles);
 
 	viewportOffset = {0.0f,0.0f};
 	zoomLevel = 1.0f;

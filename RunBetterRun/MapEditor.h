@@ -1,6 +1,7 @@
 #pragma once
 #include "GameObject.h"
 #include "structs.h"
+#include "EditorModel.h"
 
 // 타일맵 관련 상수
 #define TILEMAPTOOL_X   1600
@@ -26,12 +27,8 @@ private:
 	POINT selectedSprite;
 	SpriteType selectedSpriteType;
 
-	// 맵 데이터
-	vector<Room> tiles;
-	int mapWidth,mapHeight;
-	FPOINT startPosition;
-	vector<Sprite> editorSprites;
-	vector<Obstacle> editorObstacles;
+	// 맵 데이터 (Model)
+	EditorModel m_model;
 
 	// UI 요소
 	RECT mapArea;
