@@ -1503,13 +1503,7 @@ void MapEditor::ChangeObstacleDirection(Direction dir)
 
 void MapEditor::SaveMap(const wchar_t* filePath)
 {
-	// 가장자리 벽 처리 (기존 코드 유지)
-	m_model.ForceBorderWalls(12);
-
-	// 데이터 변환 및 저장
-	ConvertToDataManager();
-
-	if(DataManager::GetInstance()->SaveMapFile(filePath))
+	if(EditorSerializer::Save(m_model,filePath))
 	{
 		MessageBox(g_hWnd,TEXT("Map saved successfully!"),TEXT("Success"),MB_OK);
 	} else
@@ -1553,13 +1547,23 @@ void MapEditor::SaveMapAs()
 
 void MapEditor::LoadMap(const wchar_t* filePath)
 {
-	if(!DataManager::GetInstance()->LoadMapFile(filePath))
+	if(!EditorSerializer::Load(m_model,filePath))
 	{
 		MessageBox(g_hWnd,TEXT("Failed to load map!"),TEXT("Error"),MB_OK);
 		return;
 	}
 
-	ConvertFromDataManager();
+	viewportOffset = {0.0f,0.0f};
+	zoomLevel = 1.0f;
+	selectedTile = {0,0};
+	isSpriteSelected = false;
+	selectedSprite = {0,0};
+	isDragging = false;
+	isDraggingArea = false;
+	currentMode = EditMode::TILE;
+	selectedTileType = RoomType::FLOOR;
+	selectedObstacleDir = Direction::EAST;
+
 	MessageBox(g_hWnd,TEXT("Map loaded successfully!"),TEXT("Success"),MB_OK);
 }
 
@@ -1574,137 +1578,3 @@ void MapEditor::ClearMap()
 	MessageBox(g_hWnd,TEXT("Map cleared!"),TEXT("Success"),MB_OK);
 }
 
-void MapEditor::ConvertToDataManager()
-{
-	// DataManager에 데이터 설정
-
-	DataManager::GetInstance()->ClearAllData();
-	DataManager::GetInstance()->SetMapData(m_model.Tiles(),m_model.Width(),m_model.Height());
-	DataManager::GetInstance()->SetTextureInfo(L"Image/tiles.bmp",128,SAMPLE_TILE_X,SAMPLE_TILE_Y);
-	DataManager::GetInstance()->SetStartPosition(m_model.StartPosition());
-
-	// 아이템, 몬스터, 장애물 데이터 추가
-	for(const auto& sprite : m_model.Sprites()) {
-		ItemData item;
-		MonsterData monster;
-		switch (sprite.type)
-		{
-			case SpriteType::KEY: case SpriteType::ITEM: case SpriteType::NONE:
-				item.pos = sprite.pos;
-				item.id = sprite.id;
-				DataManager::GetInstance()->AddItemData(item);
-				break;
-			case SpriteType::MONSTER:
-				monster.pos = sprite.pos;
-				monster.id = sprite.id;
-				DataManager::GetInstance()->AddMonsterData(monster);
-		}
-	}
-
-	for(const auto& obstacle : m_model.Obstacles()) {
-		ObstacleData obsData;
-		obsData.pos = obstacle.pos;
-		obsData.dir = obstacle.dir;
-		obsData.id = obstacle.id;
-		DataManager::GetInstance()->AddObstacleData(obsData);
-	}
-
-}
-
-void MapEditor::ConvertFromDataManager()
-{
-	// 맵 데이터 로드
-	MapData mapData;
-	if(DataManager::GetInstance()->GetMapData(mapData))
-	{
-		// 타일 데이터 복원
-		m_model.SetTiles(mapData.tiles,mapData.width,mapData.height);
-	}
-
-	// 시작 위치 복원
-	m_model.SetStartPosition(DataManager::GetInstance()->GetStartPosition());
-
-	// 데이터 초기화
-	vector<Sprite> loadedSprites;
-	vector<Obstacle> loadedObstacles;
-
-	const auto& items = DataManager::GetInstance()->GetItems();
-	for(const auto& item : items) {
-		Sprite sprite;
-		sprite.id = item.id;
-		sprite.pos = item.pos;
-		switch(sprite.id)
-		{
-		case 0:
-		sprite.type = SpriteType::KEY;
-		break;
-		case 1: case 2: case 3:
-		sprite.type = SpriteType::ITEM;
-		break;
-		case 4: case 5: case 6: case 7: case 8:
-		sprite.type = SpriteType::NONE;
-		break;
-		}
-		//sprite.distance = 0.0f;
-
-		// 텍스처와 애니메이션 정보 설정
-		/*sprite.texture = TextureManager::GetInstance()->GetTexture(TEXT("Image/soul.bmp"));*/
-		//sprite.aniInfo = item.aniInfo;
-
-		// 스프라이트 목록에 추가
-		loadedSprites.push_back(sprite);
-	}
-
-	// 몬스터 복원
-	const auto& monsters = DataManager::GetInstance()->GetMonsters();
-	for(const auto& monster : monsters) {
-		Sprite sprite;
-		sprite.id = monster.id;
-		sprite.pos = monster.pos;
-		sprite.type = SpriteType::MONSTER;
-		//sprite.distance = 0.0f;
-		//sprite.id = 10;
-		// 텍스처와 애니메이션 정보 설정
-		/*sprite.texture = TextureManager::GetInstance()->GetTexture(TEXT("Image/Ballman.bmp"));*/
-		/*sprite.aniInfo = monster.aniInfo;*/
-
-		// 스프라이트 목록에 추가
-		loadedSprites.push_back(sprite);
-	}
-
-	// 장애물 복원
-	const auto& obstacles = DataManager::GetInstance()->GetObstacles();
-	for(const auto& obstacleData : obstacles) {
-		Obstacle obstacle;
-		obstacle.id = obstacleData.id;
-		obstacle.pos = obstacleData.pos;
-		obstacle.dir = obstacleData.dir;
-		//obstacle.block = TRUE;
-		//obstacle.distance = 0.0f;
-
-		// 텍스처와 애니메이션 정보 설정
-		// 장애물 종류에 따라 다른 텍스처 적용 가능
-		/*obstacle.texture = TextureManager::GetInstance()->GetTexture(TEXT("Image/pile.bmp"));
-		obstacle.aniInfo = {0.0f,0.0f,{128,128},{8,1},{0,0}};*/
-
-		// 장애물 목록에 추가
-		loadedObstacles.push_back(obstacle);
-	}
-
-	m_model.SetSprites(loadedSprites);
-	m_model.SetObstacles(loadedObstacles);
-
-	viewportOffset = {0.0f,0.0f};
-	zoomLevel = 1.0f;
-	selectedTile = {0,0};
-	isSpriteSelected = false;
-	selectedSprite = {0,0};
-	isDragging = false;
-	isDraggingArea = false;
-	currentMode = EditMode::TILE;
-	selectedTileType = RoomType::FLOOR;
-	selectedObstacleDir = Direction::EAST;
-
-	// 최종적으로 맵이 로드되었음을 콘솔에 출력 (디버깅용, 필요시 제거)
-	OutputDebugString(L"Map data loaded from DataManager successfully.\n");
-}

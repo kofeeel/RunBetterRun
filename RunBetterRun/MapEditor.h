@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "structs.h"
 #include "EditorModel.h"
+#include "EditorSerializer.h"
 
 // 타일맵 관련 상수
 #define TILEMAPTOOL_X   1600
@@ -79,9 +80,6 @@ private:
 	void SaveMapAs();
 	void LoadMap(const wchar_t* filePath);
 	void ClearMap();
-
-	void ConvertToDataManager();
-	void ConvertFromDataManager();
 
 	// 렌더
 	void RenderMapTiles(HDC hdc);

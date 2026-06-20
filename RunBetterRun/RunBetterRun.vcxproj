@@ -168,6 +168,7 @@
     <ClCompile Include="AMonster.cpp" />
     <ClCompile Include="MapEditor.cpp" />
     <ClCompile Include="EditorModel.cpp" />
+    <ClCompile Include="EditorSerializer.cpp" />
     <ClCompile Include="NumberUI.cpp" />
     <ClCompile Include="ObstacleManager.cpp" />
     <ClCompile Include="OpeningScene.cpp" />
@@ -219,6 +220,7 @@
     <ClInclude Include="AMonster.h" />
     <ClInclude Include="MapEditor.h" />
     <ClInclude Include="EditorModel.h" />
+    <ClInclude Include="EditorSerializer.h" />
     <ClInclude Include="MonsterManager.h" />
     <ClInclude Include="NumberUI.h" />
     <ClInclude Include="ObstacleManager.h" />
