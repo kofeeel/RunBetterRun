@@ -1,4 +1,4 @@
-#include "EditorSerializer.h"
+﻿#include "EditorSerializer.h"
 #include "DataManager.h"
 #include "structs.h"
 
