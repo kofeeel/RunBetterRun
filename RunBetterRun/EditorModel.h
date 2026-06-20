@@ -17,6 +17,7 @@ public:
 	void RemoveNearestSprite(int x, int y, FPOINT mouseWorldPos); // MONSTER/ITEM 분기
 	void Resize(int newWidth, int newHeight);
 	void Clear();
+	void ReleaseData();                               // Release() 전용: 벡터만 clear (기본값 재설정 없음)
 	void ForceBorderWalls(BYTE tilePos);              // SaveMap의 가장자리 강제 (tilePos=12)
 	// 접근자 (View/Serializer가 const로 읽음)
 	int Width() const { return mapWidth; }

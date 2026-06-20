@@ -95,6 +95,7 @@ HRESULT MapEditor::Init()
 
 void MapEditor::Release()
 {
+	m_model.ReleaseData();
 	DataManager::GetInstance()->ClearAllData();
 }
 

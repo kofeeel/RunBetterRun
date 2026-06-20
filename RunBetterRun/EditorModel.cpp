@@ -305,6 +305,13 @@ void EditorModel::Clear()
 	editorObstacles.clear();
 }
 
+void EditorModel::ReleaseData()
+{
+	tiles.clear();
+	editorSprites.clear();
+	editorObstacles.clear();
+}
+
 void EditorModel::ForceBorderWalls(BYTE tilePos)
 {
 	for(int y = 0; y < mapHeight; y++) {
