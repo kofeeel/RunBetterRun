@@ -402,3 +402,10 @@ FodyWeavers.xsd
 # high-capacity file
 RunBetterRun/image/Enemy.bmp
 RunBetterRun/image/Enemy2.bmp.superpowers/
+
+# maptest build artifacts
+tools/maptest/*.exe
+tools/maptest/*.i
+tools/maptest/out*.dat
+out*.dat
+Map/
