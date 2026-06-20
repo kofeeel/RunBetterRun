@@ -1,0 +1,4 @@
+75adc6ae39f9eda1fdb501f3ac9326bfd268c6a4b8defece0d7689ccd7bea8b8 *tools/maptest/golden/First.dat
+dbb97c0a7b1e6cad9ffd70fbc0dda31de4adaa0928c7e7eaef4a6cfde1ec65fe *tools/maptest/golden/NewMap.dat
+dbb97c0a7b1e6cad9ffd70fbc0dda31de4adaa0928c7e7eaef4a6cfde1ec65fe *tools/maptest/golden/SavedMap.dat
+ac9b275314f263615927badeed7788570824173fb4e227123b021185a6065801 *tools/maptest/golden/Second.dat
