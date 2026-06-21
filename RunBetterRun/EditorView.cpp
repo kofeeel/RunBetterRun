@@ -1055,3 +1055,8 @@ void EditorView::ResetCamera()
 	viewportOffset = {0.0f,0.0f};
 	zoomLevel = 1.0f;
 }
+
+void EditorView::ResetViewport()
+{
+	viewportOffset = {0.0f,0.0f};
+}

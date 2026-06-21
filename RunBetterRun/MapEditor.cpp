@@ -434,8 +434,8 @@ void MapEditor::ResizeMap(int newWidth,int newHeight)
 {
 	m_model.Resize(newWidth,newHeight);
 
-	// 뷰포트 리셋
-	m_view.ResetCamera();
+	// 뷰포트 리셋 (줌은 보존 — 원본 동작)
+	m_view.ResetViewport();
 }
 
 void MapEditor::Zoom(float delta)

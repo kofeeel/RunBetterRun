@@ -47,6 +47,7 @@ public:
 	void VerticalScroll(int delta, const EditorModel& model);
 	void HorizontalScroll(int delta, const EditorModel& model);
 	void ResetCamera();                               // viewportOffset={0,0}; zoomLevel=1
+	void ResetViewport();                             // viewportOffset={0,0} only (zoom 보존)
 	const RECT& MapArea() const { return mapArea; }
 	const RECT& SampleArea() const { return sampleArea; }
 	const RECT& SampleSpriteArea() const { return sampleSpriteArea; }
