@@ -68,10 +68,15 @@ void EditorView::Render(HDC hdc, const EditorModel& model, const EditorViewState
 	// 배경 채우기
 	PatBlt(hdc,0,0,TILEMAPTOOL_X,TILEMAPTOOL_Y,WHITENESS);
 
-	// 맵 영역 테두리 그리기
+	// 맵(보드) 테두리 그리기 — 실제 보드 범위(중앙정렬)에 맞춰 그려 잉여 띠 제거
+	int tileSize = TileSize(model);
+	POINT origin = BoardOrigin(model);
+	int boardW = (int)((model.Width() / zoomLevel) * tileSize);
+	int boardH = (int)((model.Height() / zoomLevel) * tileSize);
 	HPEN mapAreaPen = CreatePen(PS_SOLID,2,RGB(100,100,100));
 	HPEN oldPen = (HPEN)SelectObject(hdc,mapAreaPen);
-	Rectangle(hdc,mapArea.left - 2,mapArea.top - 2,mapArea.right + 2,mapArea.bottom + 2);
+	SelectObject(hdc,GetStockObject(NULL_BRUSH));
+	Rectangle(hdc,origin.x - 2,origin.y - 2,origin.x + boardW + 2,origin.y + boardH + 2);
 	SelectObject(hdc,oldPen);
 	DeleteObject(mapAreaPen);
 
@@ -512,9 +517,10 @@ void EditorView::RenderSprites(HDC hdc, const EditorModel& model, const EditorVi
 			spriteY < viewportOffset.y || spriteY >= viewportOffset.y + model.Height() / zoomLevel)
 			continue;
 
-		// 스크린 좌표 계산 (타일 위치가 아닌 실제 위치 기준)
-		int screenX = mapArea.left + (int)((spriteX - viewportOffset.x) * tileSize);
-		int screenY = mapArea.top + (int)((spriteY - viewportOffset.y) * tileSize);
+		// 스크린 좌표 계산 (타일 위치가 아닌 실제 위치 기준, 보드 원점=중앙정렬 기준)
+		POINT origin = BoardOrigin(model);
+		int screenX = origin.x + (int)((spriteX - viewportOffset.x) * tileSize);
+		int screenY = origin.y + (int)((spriteY - viewportOffset.y) * tileSize);
 
 		// 스프라이트 종류에 따라 다른 색상 + 현재 모드와 일치하면 더 밝게
 		COLORREF color;
@@ -884,9 +890,10 @@ POINT EditorView::ScreenToTile(POINT screenPos, const EditorModel& model) const
 
 		if(tileSize <= 0) return result;
 
-		// 맵 내 상대 좌표 계산
-		float relX = (screenPos.x - mapArea.left) / (float)tileSize;
-		float relY = (screenPos.y - mapArea.top) / (float)tileSize;
+		// 보드 원점(중앙정렬) 기준 상대 좌표 계산
+		POINT origin = BoardOrigin(model);
+		float relX = (screenPos.x - origin.x) / (float)tileSize;
+		float relY = (screenPos.y - origin.y) / (float)tileSize;
 
 		// 뷰포트 오프셋 적용
 		result.x = (int)(viewportOffset.x + relX);
@@ -919,9 +926,10 @@ POINT EditorView::TileToScreen(POINT tilePos, const EditorModel& model) const
 		float relX = tilePos.x - viewportOffset.x;
 		float relY = tilePos.y - viewportOffset.y;
 
-		// 화면 좌표 계산
-		result.x = mapArea.left + (int)(relX * tileSize);
-		result.y = mapArea.top + (int)(relY * tileSize);
+		// 화면 좌표 계산 (보드 원점=중앙정렬 기준)
+		POINT origin = BoardOrigin(model);
+		result.x = origin.x + (int)(relX * tileSize);
+		result.y = origin.y + (int)(relY * tileSize);
 	}
 
 	return result;
@@ -932,6 +940,24 @@ int EditorView::TileSize(const EditorModel& model) const
 	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
 	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
 	return min(tileWidth,tileHeight);
+}
+
+POINT EditorView::BoardOrigin(const EditorModel& model) const
+{
+	// 현재 줌 기준 타일 크기 및 실제로 그려지는 보드 픽셀 크기 계산
+	int tileSize = TileSize(model);
+
+	// 화면에 보이는 타일 범위(=실제 그려지는 보드 크기)에 맞춰 중앙정렬
+	float visCols = model.Width() / zoomLevel;
+	float visRows = model.Height() / zoomLevel;
+	int boardW = (int)(visCols * tileSize);
+	int boardH = (int)(visRows * tileSize);
+
+	POINT origin = {
+		mapArea.left + ((mapArea.right - mapArea.left) - boardW) / 2,
+		mapArea.top + ((mapArea.bottom - mapArea.top) - boardH) / 2
+	};
+	return origin;
 }
 
 FPOINT EditorView::CalculateSpritePosition(int x, int y, const EditorModel& model, POINT mousePos, bool useCenter) const

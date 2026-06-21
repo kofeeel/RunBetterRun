@@ -41,6 +41,7 @@ public:
 	POINT ScreenToTile(POINT screenPos, const EditorModel& model) const;
 	POINT TileToScreen(POINT tilePos, const EditorModel& model) const;
 	int TileSize(const EditorModel& model) const;     // 현재 줌 기준 타일 픽셀 크기 (HandleInput/RemoveObject용)
+	POINT BoardOrigin(const EditorModel& model) const; // 보드 좌상단(맵 영역 중앙정렬, 줌 반영) — 모든 보드 좌표 원점
 	FPOINT CalculateSpritePosition(int x, int y, const EditorModel& model, POINT mousePos, bool useCenter) const;
 	void Zoom(float delta, const EditorModel& model, POINT mousePos, bool mouseInMapArea);
 	void Scroll(float dx, float dy, const EditorModel& model);
