@@ -101,26 +101,30 @@ void EditorView::Render(HDC hdc, const EditorModel& model, const EditorViewState
 	// 배경 채우기
 	PatBlt(hdc,0,0,TILEMAPTOOL_X,TILEMAPTOOL_Y,WHITENESS);
 
-	// 맵(보드) 테두리 그리기 — 실제 보드 범위(중앙정렬)에 맞춰 그려 잉여 띠 제거
-	int tileSize = TileSize(model);
-	POINT origin = BoardOrigin(model);
-	int boardW = (int)((model.Width() / zoomLevel) * tileSize);
-	int boardH = (int)((model.Height() / zoomLevel) * tileSize);
-	HPEN mapAreaPen = CreatePen(PS_SOLID,2,RGB(100,100,100));
-	HPEN oldPen = (HPEN)SelectObject(hdc,mapAreaPen);
-	SelectObject(hdc,GetStockObject(NULL_BRUSH));
-	Rectangle(hdc,origin.x - 2,origin.y - 2,origin.x + boardW + 2,origin.y + boardH + 2);
-	SelectObject(hdc,oldPen);
-	DeleteObject(mapAreaPen);
+	// 보드 콘텐츠 레이어를 mapArea 로 클리핑 (상단 정보바/우측 패널 침범 방지)
+	int savedDC = SaveDC(hdc);
+	IntersectClipRect(hdc,mapArea.left,mapArea.top,mapArea.right,mapArea.bottom);
 
 	RenderMapTiles(hdc,model,s);
 	RenderDragArea(hdc,model,s);
 	RenderSprites(hdc,model,s);
 	RenderObstacles(hdc,model,s);
-	RenderSampleTiles(hdc,model,s);
-	RenderSampleSprites(hdc,model,s);
 	RenderRightDragArea(hdc,model,s);
 	RenderTileBorders(hdc,model,s);
+
+	RestoreDC(hdc,savedDC);
+
+	// mapArea 뷰포트 테두리 (클립 밖에서 그려야 완전히 보임)
+	HPEN mapAreaPen = CreatePen(PS_SOLID,2,RGB(100,100,100));
+	HPEN oldPen = (HPEN)SelectObject(hdc,mapAreaPen);
+	SelectObject(hdc,GetStockObject(NULL_BRUSH));
+	Rectangle(hdc,mapArea.left - 1,mapArea.top - 1,mapArea.right + 1,mapArea.bottom + 1);
+	SelectObject(hdc,oldPen);
+	DeleteObject(mapAreaPen);
+
+	// UI/패널 레이어 (클립 범위 밖)
+	RenderSampleTiles(hdc,model,s);
+	RenderSampleSprites(hdc,model,s);
 	RenderUI(hdc,model,s);
 }
 
@@ -129,15 +133,14 @@ void EditorView::RenderMapTiles(HDC hdc, const EditorModel& model, const EditorV
 	if(!sampleTileImage) return;
 
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	// 화면에 보이는 타일 범위
 	int startX = max(0,(int)viewportOffset.x);
 	int startY = max(0,(int)viewportOffset.y);
 	int endX = min(model.Width(),(int)(viewportOffset.x + model.Width() / zoomLevel) + 1);
-	int endY = min(model.Height(),(int)(viewportOffset.y + model.Height() / zoomLevel) + 1);
+	int endY = min(model.Height(),
+		(int)(viewportOffset.y + (mapArea.bottom - mapArea.top) / (float)TileSize(model)) + 1);
 
 	// 타일 렌더링
 	for(int y = startY; y < endY; y++) {
@@ -223,10 +226,6 @@ void EditorView::RenderMapTiles(HDC hdc, const EditorModel& model, const EditorV
 			// 드래그 영역 표시
 			if(s.isDraggingArea && (s.currentMode == EditMode::TILE || s.currentMode == EditMode::OBSTACLE))
 			{
-				int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-				int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-				int tileSize = min(tileWidth,tileHeight);
-
 				POINT startScreen = TileToScreen(s.dragStart,model);
 				POINT endScreen = TileToScreen(s.dragEnd,model);
 
@@ -472,9 +471,7 @@ void EditorView::RenderSampleSprites(HDC hdc, const EditorModel& model, const Ed
 void EditorView::RenderSprites(HDC hdc, const EditorModel& model, const EditorViewState& s)
 {
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	for(const auto& sprite : model.Sprites()) {
 		// 스프라이트 위치 (실제 좌표)
@@ -535,9 +532,7 @@ void EditorView::RenderSprites(HDC hdc, const EditorModel& model, const EditorVi
 void EditorView::RenderObstacles(HDC hdc, const EditorModel& model, const EditorViewState& s)
 {
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	for(const auto& obstacle : model.Obstacles()) {
 		// 장애물 위치
@@ -599,9 +594,7 @@ void EditorView::RenderDragArea(HDC hdc, const EditorModel& model, const EditorV
 	if(!s.isDraggingArea || !(s.currentMode == EditMode::TILE || s.currentMode == EditMode::OBSTACLE))
 		return;
 
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	POINT startScreen = TileToScreen(s.dragStart,model);
 	POINT endScreen = TileToScreen(s.dragEnd,model);
@@ -632,9 +625,7 @@ void EditorView::RenderRightDragArea(HDC hdc, const EditorModel& model, const Ed
 	if(!s.isRightDraggingArea)
 		return;
 
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	POINT startScreen = TileToScreen(s.rightDragStart,model);
 	POINT endScreen = TileToScreen(s.rightDragEnd,model);
@@ -665,15 +656,14 @@ void EditorView::RenderTileBorders(HDC hdc, const EditorModel& model, const Edit
 	if(!sampleTileImage) return;
 
 	// 타일 크기 계산 (확대/축소 적용)
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	int tileSize = min(tileWidth,tileHeight);
+	int tileSize = TileSize(model);
 
 	// 화면에 보이는 타일 범위
 	int startX = max(0,(int)viewportOffset.x);
 	int startY = max(0,(int)viewportOffset.y);
 	int endX = min(model.Width(),(int)(viewportOffset.x + model.Width() / zoomLevel) + 1);
-	int endY = min(model.Height(),(int)(viewportOffset.y + model.Height() / zoomLevel) + 1);
+	int endY = min(model.Height(),
+		(int)(viewportOffset.y + (mapArea.bottom - mapArea.top) / (float)TileSize(model)) + 1);
 
 	// 타일 렌더링
 	for(int y = startY; y < endY; y++) {
@@ -853,9 +843,7 @@ POINT EditorView::ScreenToTile(POINT screenPos, const EditorModel& model) const
 	if(PtInRect(&mapArea,screenPos))
 	{
 		// 타일 크기 계산
-		int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-		int tileSize = min(tileWidth,tileHeight);
+		int tileSize = TileSize(model);
 
 		if(tileSize <= 0) return result;
 
@@ -885,9 +873,7 @@ POINT EditorView::TileToScreen(POINT tilePos, const EditorModel& model) const
 	if(tilePos.x >= 0 && tilePos.x < model.Width() && tilePos.y >= 0 && tilePos.y < model.Height())
 	{
 		// 타일 크기 계산
-		int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-		int tileSize = min(tileWidth,tileHeight);
+		int tileSize = TileSize(model);
 
 		if(tileSize <= 0) return result;
 
@@ -906,25 +892,24 @@ POINT EditorView::TileToScreen(POINT tilePos, const EditorModel& model) const
 
 int EditorView::TileSize(const EditorModel& model) const
 {
-	int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-	int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-	return min(tileWidth,tileHeight);
+	float visCols = model.Width() / zoomLevel;
+	if(visCols <= 0.0f) return 1;
+	int size = (int)((mapArea.right - mapArea.left) / visCols);
+	return size < 1 ? 1 : size;
 }
 
 POINT EditorView::BoardOrigin(const EditorModel& model) const
 {
-	// 현재 줌 기준 타일 크기 및 실제로 그려지는 보드 픽셀 크기 계산
 	int tileSize = TileSize(model);
-
-	// 화면에 보이는 타일 범위(=실제 그려지는 보드 크기)에 맞춰 중앙정렬
 	float visCols = model.Width() / zoomLevel;
 	float visRows = model.Height() / zoomLevel;
 	int boardW = (int)(visCols * tileSize);
 	int boardH = (int)(visRows * tileSize);
-
+	int areaW = mapArea.right - mapArea.left;
+	int areaH = mapArea.bottom - mapArea.top;
 	POINT origin = {
-		mapArea.left + ((mapArea.right - mapArea.left) - boardW) / 2,
-		mapArea.top + ((mapArea.bottom - mapArea.top) - boardH) / 2
+		boardW >= areaW ? mapArea.left : mapArea.left + (areaW - boardW) / 2,
+		boardH >= areaH ? mapArea.top  : mapArea.top  + (areaH - boardH) / 2
 	};
 	return origin;
 }
@@ -947,9 +932,7 @@ FPOINT EditorView::CalculateSpritePosition(int x, int y, const EditorModel& mode
 		if(tileScreenPos.x < 0 || tileScreenPos.y < 0)
 			return {-1,-1}; // 유효하지 않은 위치 반환
 
-		int tileWidth = (mapArea.right - mapArea.left) / (model.Width() / zoomLevel);
-		int tileHeight = (mapArea.bottom - mapArea.top) / (model.Height() / zoomLevel);
-		int tileSize = min(tileWidth,tileHeight);
+		int tileSize = TileSize(model);
 
 		// 타일 내에서의 상대 위치 (0.0 ~ 1.0)
 		float relativeX = (mousePos.x - tileScreenPos.x) / (float)tileSize;
@@ -998,7 +981,8 @@ void EditorView::Zoom(float delta, const EditorModel& model, POINT mousePos, boo
 
 	// 뷰포트 범위 제한
 	float maxOffsetX = max(0.0f,model.Width() - model.Width() / zoomLevel);
-	float maxOffsetY = max(0.0f,model.Height() - model.Height() / zoomLevel);
+	float visRowsOnScreen = (float)(mapArea.bottom - mapArea.top) / (float)TileSize(model);
+	float maxOffsetY = max(0.0f,(float)model.Height() - visRowsOnScreen);
 
 	viewportOffset.x = max(0.0f,min(viewportOffset.x,maxOffsetX));
 	viewportOffset.y = max(0.0f,min(viewportOffset.y,maxOffsetY));
@@ -1011,7 +995,8 @@ void EditorView::Scroll(float dx, float dy, const EditorModel& model)
 
 	// 뷰포트 범위 제한
 	float maxOffsetX = max(0.0f,model.Width() - model.Width() / zoomLevel);
-	float maxOffsetY = max(0.0f,model.Height() - model.Height() / zoomLevel);
+	float visRowsOnScreen = (float)(mapArea.bottom - mapArea.top) / (float)TileSize(model);
+	float maxOffsetY = max(0.0f,(float)model.Height() - visRowsOnScreen);
 
 	viewportOffset.x = max(0.0f,min(viewportOffset.x,maxOffsetX));
 	viewportOffset.y = max(0.0f,min(viewportOffset.y,maxOffsetY));
@@ -1026,7 +1011,8 @@ void EditorView::VerticalScroll(int delta, const EditorModel& model)
 		viewportOffset.y = max(0.0f,viewportOffset.y - scrollAmount / zoomLevel);
 	} else
 	{
-		float maxY = max(0.0f,model.Height() - model.Height() / zoomLevel);
+		float visRowsOnScreen = (float)(mapArea.bottom - mapArea.top) / (float)TileSize(model);
+		float maxY = max(0.0f,(float)model.Height() - visRowsOnScreen);
 		viewportOffset.y = min(maxY,viewportOffset.y + scrollAmount / zoomLevel);
 	}
 }
