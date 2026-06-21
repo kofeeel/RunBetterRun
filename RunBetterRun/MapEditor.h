@@ -3,6 +3,7 @@
 #include "structs.h"
 #include "EditorModel.h"
 #include "EditorSerializer.h"
+#include "EditorView.h"
 
 // 타일맵 관련 상수
 #define TILEMAPTOOL_X   1600
@@ -31,17 +32,11 @@ private:
 	// 맵 데이터 (Model)
 	EditorModel m_model;
 
-	// UI 요소
-	RECT mapArea;
-	RECT sampleArea;
-	RECT sampleSpriteArea;
-	Image* sampleTileImage;
-	Image* sampleSpriteImage;
+	// 렌더/카메라/좌표변환 (View)
+	EditorView m_view;
 
 	// 확대/축소 및 스크롤
-	FPOINT viewportOffset;
 	POINT lastMousePos;
-	float zoomLevel;
 	bool isDragging;
 	
 	// 마우스 입력
@@ -70,27 +65,11 @@ private:
 	void RemoveObject(int x,int y);
 	void RemoveTilesInDragArea();
 
-	// 좌표 변환
-	POINT ScreenToTile(POINT screenPos);
-	POINT TileToScreen(POINT tilePos);
-	FPOINT CalculateSpritePosition(int x,int y);
-	
 	// 파일 처리
 	void SaveMap(const wchar_t* filePath);
 	void SaveMapAs();
 	void LoadMap(const wchar_t* filePath);
 	void ClearMap();
-
-	// 렌더
-	void RenderMapTiles(HDC hdc);
-	void RenderSampleTiles(HDC hdc);
-	void RenderSampleSprites(HDC hdc);
-	void RenderSprites(HDC hdc);
-	void RenderObstacles(HDC hdc);
-	void RenderDragArea(HDC hdc);
-	void RenderRightDragArea(HDC hdc);
-	void RenderTileBorders(HDC hdc);
-	void RenderUI(HDC hdc);
 
 public:
 	MapEditor();

@@ -162,6 +162,9 @@
     <ClCompile Include="EditorSerializer.cpp">
       <Filter>Core\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="EditorView.cpp">
+      <Filter>Core\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="MinimapUI.cpp">
       <Filter>InGame\UI</Filter>
     </ClCompile>
@@ -318,6 +321,9 @@
       <Filter>Core\Editor</Filter>
     </ClInclude>
     <ClInclude Include="EditorSerializer.h">
+      <Filter>Core\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorView.h">
       <Filter>Core\Editor</Filter>
     </ClInclude>
     <ClInclude Include="MinimapUI.h">
