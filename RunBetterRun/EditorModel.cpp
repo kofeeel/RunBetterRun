@@ -185,7 +185,7 @@ void EditorModel::RemoveNearestSprite(int x,int y,FPOINT mouseWorldPos)
 
 	for(auto it = editorSprites.begin(); it != editorSprites.end(); ++it) {
 		// 현재 타일 내에 있는 스프라이트만 고려
-		if((int)it->pos.x == x || (int)it->pos.y == y) {
+		if((int)it->pos.x == x && (int)it->pos.y == y) {
 			float dx = it->pos.x - mouseWorldPos.x;
 			float dy = it->pos.y - mouseWorldPos.y;
 			float distance = sqrt(dx*dx + dy*dy);
