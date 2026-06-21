@@ -51,7 +51,7 @@ HRESULT EditorView::Init()
 		return E_FAIL;
 
 	// 정보창
-	int infoHeight = 80;
+	int infoHeight = 60;
 	int uiPadding = 20;
 	int rightPanelWidth = 250;
 
@@ -82,7 +82,7 @@ HRESULT EditorView::Init()
 	};
 	// 맵 편집 영역
 	int mapAreaWidth = sampleArea.left - (uiPadding * 2);
-	int mapAreaHeight = TILEMAPTOOL_Y - (infoHeight + uiPadding * 4);
+	int mapAreaHeight = TILEMAPTOOL_Y - infoHeight - (uiPadding * 2);
 
 	mapArea = {
 		uiPadding,
@@ -718,7 +718,7 @@ void EditorView::RenderUI(HDC hdc, const EditorModel& model, const EditorViewSta
 {
 	// 정보 패널 배경 (상단에 배치)
 	HBRUSH infoBgBrush = CreateSolidBrush(RGB(40,40,40));
-	RECT infoRect = {0,0,TILEMAPTOOL_X,80}; // 상단에 위치
+	RECT infoRect = {0,0,TILEMAPTOOL_X,60}; // 상단에 위치 (얇게)
 	FillRect(hdc,&infoRect,infoBgBrush);
 	DeleteObject(infoBgBrush);
 
@@ -822,14 +822,14 @@ void EditorView::RenderUI(HDC hdc, const EditorModel& model, const EditorViewSta
 	{
 		TCHAR centerModeText[50];
 		swprintf_s(centerModeText,L"Place Mode: %s",s.useCenter ? L"Tile Center" : L"Mouse Position");
-		TextOut(hdc,400,45,centerModeText,wcslen(centerModeText));
+		TextOut(hdc,400,38,centerModeText,wcslen(centerModeText));
 	}
 
 	// 단축키 안내
 	LPCWSTR shortcutText1 = L"1-5: Change Mode  F: Floor  W: Wall  Arrow Keys: Direction";
 	LPCWSTR shortcutText2 = L"S: Save  A: Save As  L: Load  C: Clear  +/-: Zoom  I: Toggle Center";
-	TextOut(hdc,20,45,shortcutText1,wcslen(shortcutText1));
-	TextOut(hdc,600,45,shortcutText2,wcslen(shortcutText2));
+	TextOut(hdc,20,38,shortcutText1,wcslen(shortcutText1));
+	TextOut(hdc,600,38,shortcutText2,wcslen(shortcutText2));
 
 	SelectObject(hdc,oldFont);
 	DeleteObject(infoFont);
@@ -892,9 +892,13 @@ POINT EditorView::TileToScreen(POINT tilePos, const EditorModel& model) const
 
 int EditorView::TileSize(const EditorModel& model) const
 {
+	// 정사각 맵 전체가 보이도록 가로/세로 맞춤 중 작은 쪽 사용 (스크롤 없이 한눈에)
 	float visCols = model.Width() / zoomLevel;
-	if(visCols <= 0.0f) return 1;
-	int size = (int)((mapArea.right - mapArea.left) / visCols);
+	float visRows = model.Height() / zoomLevel;
+	if(visCols <= 0.0f || visRows <= 0.0f) return 1;
+	int sizeW = (int)((mapArea.right - mapArea.left) / visCols);
+	int sizeH = (int)((mapArea.bottom - mapArea.top) / visRows);
+	int size = min(sizeW,sizeH);
 	return size < 1 ? 1 : size;
 }
 
