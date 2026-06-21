@@ -827,7 +827,7 @@ void EditorView::RenderUI(HDC hdc, const EditorModel& model, const EditorViewSta
 
 	// 단축키 안내
 	LPCWSTR shortcutText1 = L"1-5: Change Mode  F: Floor  W: Wall  Arrow Keys: Direction";
-	LPCWSTR shortcutText2 = L"S: Save  A: Save As  L: Load  C: Clear  +/-: Zoom  I: Toggle Center";
+	LPCWSTR shortcutText2 = L"S: Save  A: Save As  L: Load  O: Open  C: Clear  +/-: Zoom  I: Toggle Center";
 	TextOut(hdc,20,38,shortcutText1,wcslen(shortcutText1));
 	TextOut(hdc,600,38,shortcutText2,wcslen(shortcutText2));
 

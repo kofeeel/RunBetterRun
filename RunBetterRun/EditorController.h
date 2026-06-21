@@ -66,5 +66,6 @@ private:
 	void SaveMap(EditorModel& model, const wchar_t* filePath);
 	void SaveMapAs(EditorModel& model);
 	void LoadMap(EditorModel& model, EditorView& view, const wchar_t* filePath);
+	void LoadMapFrom(EditorModel& model, EditorView& view);
 	void ClearMap(EditorModel& model, EditorView& view);
 };

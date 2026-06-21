@@ -112,6 +112,7 @@ void EditorController::HandleInput(EditorModel& model, EditorView& view)
 	if(km->IsOnceKeyDown('S')) SaveMap(model,L"Map/EditorMap.dat");
 	else if(km->IsOnceKeyDown('A')) SaveMapAs(model);
 	else if(km->IsOnceKeyDown('L')) LoadMap(model,view,L"Map/EditorMap.dat");
+	else if(km->IsOnceKeyDown('O')) LoadMapFrom(model,view);
 	else if(km->IsOnceKeyDown('C')) ClearMap(model,view);
 
 	// 토글
@@ -491,6 +492,29 @@ void EditorController::LoadMap(EditorModel& model, EditorView& view, const wchar
 	selectedObstacleDir = Direction::EAST;
 
 	MessageBox(g_hWnd,TEXT("Map loaded successfully!"),TEXT("Success"),MB_OK);
+}
+
+void EditorController::LoadMapFrom(EditorModel& model, EditorView& view)
+{
+	OPENFILENAME ofn;
+	WCHAR szFile[260] = L"";
+
+	ZeroMemory(&ofn,sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = g_hWnd;
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile) / sizeof(WCHAR);
+	ofn.lpstrFilter = L"Map Files (*.dat)\0*.dat\0All Files (*.*)\0*.*\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = L"Map";
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	if(GetOpenFileName(&ofn))
+	{
+		LoadMap(model,view,ofn.lpstrFile);
+	}
 }
 
 void EditorController::ClearMap(EditorModel& model, EditorView& view)
