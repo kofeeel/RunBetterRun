@@ -165,6 +165,9 @@
     <ClCompile Include="EditorView.cpp">
       <Filter>Core\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="EditorController.cpp">
+      <Filter>Core\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="MinimapUI.cpp">
       <Filter>InGame\UI</Filter>
     </ClCompile>
@@ -324,6 +327,9 @@
       <Filter>Core\Editor</Filter>
     </ClInclude>
     <ClInclude Include="EditorView.h">
+      <Filter>Core\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorController.h">
       <Filter>Core\Editor</Filter>
     </ClInclude>
     <ClInclude Include="MinimapUI.h">

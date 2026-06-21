@@ -170,6 +170,7 @@
     <ClCompile Include="EditorModel.cpp" />
     <ClCompile Include="EditorSerializer.cpp" />
     <ClCompile Include="EditorView.cpp" />
+    <ClCompile Include="EditorController.cpp" />
     <ClCompile Include="NumberUI.cpp" />
     <ClCompile Include="ObstacleManager.cpp" />
     <ClCompile Include="OpeningScene.cpp" />
@@ -223,6 +224,7 @@
     <ClInclude Include="EditorModel.h" />
     <ClInclude Include="EditorSerializer.h" />
     <ClInclude Include="EditorView.h" />
+    <ClInclude Include="EditorController.h" />
     <ClInclude Include="MonsterManager.h" />
     <ClInclude Include="NumberUI.h" />
     <ClInclude Include="ObstacleManager.h" />
