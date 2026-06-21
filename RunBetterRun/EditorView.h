@@ -20,6 +20,23 @@
 #define SAMPLE_TILE_Y 4
 #endif
 
+// 스프라이트 피커 슬롯 지오메트리 (RenderSampleSprites 와 MapEditor::HandleInput 이 공유 — 렌더/히트테스트 일치 보장)
+#ifndef SPRITE_THUMB_SLOT
+#define SPRITE_THUMB_SLOT   48   // 섬네일 슬롯 한 변(px) — 게임 이미지를 이 크기로 축소
+#endif
+#ifndef SPRITE_THUMB_GAP_X
+#define SPRITE_THUMB_GAP_X  24   // 슬롯 가로 간격
+#endif
+#ifndef SPRITE_THUMB_GAP_Y
+#define SPRITE_THUMB_GAP_Y  34   // 슬롯 세로 간격(레이블 포함)
+#endif
+#ifndef SPRITE_ITEMS_PER_ROW
+#define SPRITE_ITEMS_PER_ROW 4
+#endif
+#ifndef SPRITE_SECTION_TITLE_H
+#define SPRITE_SECTION_TITLE_H 20 // 섹션 제목 높이
+#endif
+
 class Image;
 
 // 렌더 시 View가 읽어야 하는 편집/입력 상태 묶음 (Controller가 채움)
@@ -52,12 +69,16 @@ public:
 	const RECT& MapArea() const { return mapArea; }
 	const RECT& SampleArea() const { return sampleArea; }
 	const RECT& SampleSpriteArea() const { return sampleSpriteArea; }
-	Image* SampleSpriteImage() const { return sampleSpriteImage; }
 
 private:
 	FPOINT viewportOffset; float zoomLevel;
 	RECT mapArea, sampleArea, sampleSpriteArea;
-	Image* sampleTileImage; Image* sampleSpriteImage;
+	Image* sampleTileImage;
+
+	// 피커 섹션별 게임 실제 이미지 (frame 0 을 슬롯에 축소 렌더)
+	Image* itemImages[9];     // Key/Phone/Insight/Stun/Poo/Sowha/Pipe/Drumtong/Trash
+	Image* monsterImages[1];  // Ball Man
+	Image* obstacleImages[3]; // Elevator/Pile/Final Elevator(=elevator 재사용 + 뱃지)
 
 	// 9개 Render* 헬퍼
 	void RenderMapTiles(HDC hdc, const EditorModel& model, const EditorViewState& s);

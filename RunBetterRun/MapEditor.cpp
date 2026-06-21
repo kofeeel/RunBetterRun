@@ -192,61 +192,59 @@ void MapEditor::HandleInput()
 		}
 	} else if(mouseInSpriteArea && km->IsOnceKeyDown(VK_LBUTTON))
 	{
-		// 스프라이트 선택 처리
-		int spriteWidth = m_view.SampleSpriteImage()->GetFrameWidth();
-		int spriteHeight = m_view.SampleSpriteImage()->GetFrameHeight();
+		// 스프라이트 선택 처리 — RenderSampleSprites 와 동일한 공유 지오메트리로 슬롯 역산
+		const RECT& area = m_view.SampleSpriteArea();
+		const int slotPitchX = SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_X;
+		const int rowPitch   = SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_Y;
 
-		// 현재 마우스 Y 위치에 따라 섹션 결정
-		int sectionY = mousePos.y - m_view.SampleSpriteArea().top;
-		int itemSectionHeight = 200; // 아이템 섹션 높이 (예상치)
-		int monsterSectionHeight = 100; // 몬스터 섹션 높이 (예상치)
+		const int itemsSectionH   = SPRITE_SECTION_TITLE_H + 3 * rowPitch;
+		const int monsterSectionH = SPRITE_SECTION_TITLE_H + 1 * rowPitch;
 
-		if(sectionY < itemSectionHeight) {
-			// 아이템 섹션
-			const int itemsPerRow = 4;
-			int relX = (mousePos.x - m_view.SampleSpriteArea().left) / (spriteWidth + 20);
-			int relY = (sectionY - 20) / (spriteHeight + 30);
-			int itemIndex = relY * itemsPerRow + relX;
+		const int itemsTitleY    = 0;
+		const int monsterTitleY  = itemsTitleY + itemsSectionH;
+		const int obstacleTitleY = monsterTitleY + monsterSectionH;
 
-			if(itemIndex >= 0 && itemIndex < 9) { // 아이템은 4개
-				selectedSprite.x = itemIndex;
-				selectedSprite.y = 0;
-				selectedSpriteType = SpriteType::ITEM;
-				isSpriteSelected = true;
-				ChangeEditMode(EditMode::ITEM);
-			}
-		} else if(sectionY < itemSectionHeight + monsterSectionHeight) {
-			// 몬스터 섹션
-			int relX = (mousePos.x - m_view.SampleSpriteArea().left) / (spriteWidth + 20);
+		int relX = mousePos.x - area.left;
+		int sectionY = mousePos.y - area.top;
+		int col = (relX >= 0) ? (relX / slotPitchX) : -1;
+		// 슬롯 내부(레이블/간격 영역 제외)인지도 확인
+		bool inSlotX = (relX >= 0) && ((relX % slotPitchX) < SPRITE_THUMB_SLOT);
 
-			if(relX >= 0 && relX < 1) { // 몬스터는 1개
-				selectedSprite.x = relX;
+		if(sectionY >= monsterTitleY + SPRITE_SECTION_TITLE_H && sectionY < obstacleTitleY)
+		{
+			// 몬스터 섹션 (1개)
+			if(inSlotX && col == 0) {
+				selectedSprite.x = 0;
 				selectedSprite.y = 1;
 				selectedSpriteType = SpriteType::MONSTER;
 				isSpriteSelected = true;
 				ChangeEditMode(EditMode::MONSTER);
 			}
-		} else {
-			// 장애물 섹션
-			const int obstaclesPerRow = 4;
-			int sectionsTopOffset = itemSectionHeight + monsterSectionHeight + 40; // 앞 섹션 높이 + 장애물 제목 공간
-			int relY = (sectionY - sectionsTopOffset) / (spriteHeight + 30);
-			int relX = (mousePos.x - m_view.SampleSpriteArea().left) / (spriteWidth + 20);
-			int obstacleIndex = relY * obstaclesPerRow + relX;
-
-			if(obstacleIndex >= 0 && obstacleIndex < 4) { // 장애물 6개 + 엘레베이터 1개
-				if(obstacleIndex < 6) {
-					// 일반 장애물
-					selectedSprite.x = obstacleIndex;
-					selectedSprite.y = 2;
-				} else {
-					// 엘레베이터
-					selectedSprite.x = 0;
-					selectedSprite.y = 3;
-				}
+		}
+		else if(sectionY >= obstacleTitleY + SPRITE_SECTION_TITLE_H)
+		{
+			// 장애물 섹션 (3개, 1행)
+			int relY = (sectionY - (obstacleTitleY + SPRITE_SECTION_TITLE_H)) / rowPitch;
+			int idx = relY * SPRITE_ITEMS_PER_ROW + col;
+			if(inSlotX && idx >= 0 && idx < 3) {
+				selectedSprite.x = idx;
+				selectedSprite.y = 2;
 				selectedSpriteType = SpriteType::OBSTACLE;
 				isSpriteSelected = true;
 				ChangeEditMode(EditMode::OBSTACLE);
+			}
+		}
+		else if(sectionY >= itemsTitleY + SPRITE_SECTION_TITLE_H)
+		{
+			// 아이템 섹션 (9개, 4/행)
+			int relY = (sectionY - (itemsTitleY + SPRITE_SECTION_TITLE_H)) / rowPitch;
+			int idx = relY * SPRITE_ITEMS_PER_ROW + col;
+			if(inSlotX && idx >= 0 && idx < 9) {
+				selectedSprite.x = idx;
+				selectedSprite.y = 0;
+				selectedSpriteType = SpriteType::ITEM;
+				isSpriteSelected = true;
+				ChangeEditMode(EditMode::ITEM);
 			}
 		}
 	} else if(mouseInMapArea)

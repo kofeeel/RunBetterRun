@@ -6,7 +6,9 @@ EditorView::EditorView():
 	viewportOffset({0.0f,0.0f}),
 	zoomLevel(1.0f),
 	sampleTileImage(nullptr),
-	sampleSpriteImage(nullptr)
+	itemImages{},
+	monsterImages{},
+	obstacleImages{}
 {}
 
 HRESULT EditorView::Init()
@@ -18,15 +20,35 @@ HRESULT EditorView::Init()
 		SAMPLE_TILE_X,SAMPLE_TILE_Y,
 		true,RGB(255,0,255));
 
-	sampleSpriteImage = ImageManager::GetInstance()->AddImage(
-						"EditorSpriteSheet",L"Image/pallet64x160.bmp",
-						5 * TILE_SIZE,2 * TILE_SIZE,5,2,true,RGB(255,0,255)
-	);
+	// 피커용 게임 실제 이미지 로드 (frame 0 만 슬롯에 축소 렌더; MainGameScene 팩토리와 동일 매핑)
+	ImageManager* im = ImageManager::GetInstance();
+	const COLORREF key = RGB(255,0,255);
 
-	if(!sampleTileImage || !sampleSpriteImage)
-	{
+	// 아이템 (id = x)
+	itemImages[0] = im->AddImage("EditorItemKey",     L"Image/soul.bmp",         5000,250, 20,1, true,key); // Key (soul 시트, frame0)
+	itemImages[1] = im->AddImage("EditorItemPhone",   L"Image/phone.bmp",         250,250,  1,1, true,key);
+	itemImages[2] = im->AddImage("EditorItemInsight", L"Image/dongseonambuk.bmp", 250,250,  1,1, true,key);
+	itemImages[3] = im->AddImage("EditorItemStun",    L"Image/amulet.bmp",        250,250,  1,1, true,key);
+	itemImages[4] = im->AddImage("EditorItemPoo",     L"Image/poo.bmp",           128,128,  1,1, true,key);
+	itemImages[5] = im->AddImage("EditorItemSowha",   L"Image/sohwa.bmp",         128,128,  1,1, true,key);
+	itemImages[6] = im->AddImage("EditorItemPipe",    L"Image/pipe.bmp",          128,128,  1,1, true,key);
+	itemImages[7] = im->AddImage("EditorItemDrumtong",L"Image/drumtong.bmp",      128,128,  1,1, true,key);
+	itemImages[8] = im->AddImage("EditorItemTrash",   L"Image/trash.bmp",         128,128,  1,1, true,key);
+
+	// 몬스터 (id = 100 + x)
+	monsterImages[0] = im->AddImage("EditorMonBallman", L"Image/Ballman.bmp", 2150,8856, 10,36, true,key);
+
+	// 장애물 (id = 1000 + x). Final Elevator(1002) 는 elevator 재사용 + 뱃지
+	obstacleImages[0] = im->AddImage("EditorObsElevator", L"Image/elevator.bmp", 1024,128, 8,1, true,key);
+	obstacleImages[1] = im->AddImage("EditorObsPile",     L"Image/pile.bmp",     1024,128, 8,1, true,key);
+	obstacleImages[2] = obstacleImages[0]; // Final Elevator: 동일 이미지(뱃지로 구분)
+
+	if(!sampleTileImage)
 		return E_FAIL;
-	}
+	for(Image* p : itemImages)    if(!p) return E_FAIL;
+	for(Image* p : monsterImages) if(!p) return E_FAIL;
+	if(!obstacleImages[0] || !obstacleImages[1])
+		return E_FAIL;
 
 	// 정보창
 	int infoHeight = 80;
@@ -41,11 +63,22 @@ HRESULT EditorView::Init()
 		infoHeight + uiPadding * 2 + SAMPLE_TILE_Y * TILE_SIZE
 	};
 
+	// 스프라이트 피커 영역 — 폭은 4슬롯, 높이는 3섹션 전체 콘텐츠를 덮도록 지오메트리에서 산출
+	// (HandleInput 의 mouseInSpriteArea = PtInRect(SampleSpriteArea) 와 일치해야 함)
+	int spriteAreaLeft = TILEMAPTOOL_X - rightPanelWidth - uiPadding;
+	int spriteAreaTop = infoHeight + uiPadding * 10;
+	int rowPitch = SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_Y;
+	int itemsSectionH = SPRITE_SECTION_TITLE_H + 3 * rowPitch;   // 9개 / 4행 = 3행
+	int monsterSectionH = SPRITE_SECTION_TITLE_H + 1 * rowPitch; // 1개 = 1행
+	int obstacleSectionH = SPRITE_SECTION_TITLE_H + 1 * rowPitch;// 3개 / 4행 = 1행
+	int spriteAreaWidth = SPRITE_ITEMS_PER_ROW * (SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_X);
+	int spriteAreaHeight = itemsSectionH + monsterSectionH + obstacleSectionH;
+
 	sampleSpriteArea =  {
-		TILEMAPTOOL_X - rightPanelWidth - uiPadding,
-		infoHeight + uiPadding * 10,
-		TILEMAPTOOL_X - rightPanelWidth - uiPadding + SAMPLE_TILE_X * TILE_SIZE,
-		infoHeight + uiPadding * 10 + SAMPLE_TILE_Y * TILE_SIZE + 300
+		spriteAreaLeft,
+		spriteAreaTop,
+		spriteAreaLeft + spriteAreaWidth,
+		spriteAreaTop + spriteAreaHeight
 	};
 	// 맵 편집 영역
 	int mapAreaWidth = sampleArea.left - (uiPadding * 2);
@@ -283,25 +316,63 @@ void EditorView::RenderSampleTiles(HDC hdc, const EditorModel& model, const Edit
 	DeleteObject(sampleBgBrush);
 }
 
+// 피커 한 슬롯에 게임 이미지 frame 0 을 슬롯 크기로 축소 렌더 (selected 면 빨간 테두리, badge 면 'F' 뱃지)
+static void DrawPickerSlot(HDC hdc, Image* img, int slotLeft, int slotTop,
+						   LPCWSTR label, bool selected, bool badge)
+{
+	if(img)
+	{
+		// frame 0 의 원본 사각형(0,0,frameW,frameH)을 슬롯 크기로 StretchBlt
+		img->RenderResized(hdc, slotLeft, slotTop,
+						   SPRITE_THUMB_SLOT, SPRITE_THUMB_SLOT,
+						   0, 0, img->GetFrameWidth(), img->GetFrameHeight());
+	}
+
+	// 레이블 (슬롯 아래 중앙)
+	SetTextColor(hdc,RGB(0,0,0));
+	int labelLen = (int)wcslen(label);
+	TextOut(hdc, slotLeft + SPRITE_THUMB_SLOT/2 - labelLen * 3,
+			slotTop + SPRITE_THUMB_SLOT + 2, label, labelLen);
+
+	// Final Elevator 등 뱃지 표시 ('F' 글자 + 모서리 사각형)
+	if(badge)
+	{
+		HBRUSH badgeBrush = CreateSolidBrush(RGB(220,40,40));
+		HBRUSH oldB = (HBRUSH)SelectObject(hdc,badgeBrush);
+		Rectangle(hdc, slotLeft, slotTop, slotLeft + 14, slotTop + 14);
+		SelectObject(hdc,oldB);
+		DeleteObject(badgeBrush);
+
+		SetTextColor(hdc,RGB(255,255,255));
+		TextOut(hdc, slotLeft + 3, slotTop - 1, L"F", 1);
+	}
+
+	// 선택 강조
+	if(selected)
+	{
+		HPEN selectionPen = CreatePen(PS_SOLID,3,RGB(255,50,50));
+		HPEN oldSelPen = (HPEN)SelectObject(hdc,selectionPen);
+		SelectObject(hdc,GetStockObject(NULL_BRUSH));
+		Rectangle(hdc, slotLeft - 2, slotTop - 2,
+				  slotLeft + SPRITE_THUMB_SLOT + 2, slotTop + SPRITE_THUMB_SLOT + 2);
+		SelectObject(hdc,oldSelPen);
+		DeleteObject(selectionPen);
+	}
+}
+
 void EditorView::RenderSampleSprites(HDC hdc, const EditorModel& model, const EditorViewState& s)
 {
-	if(!sampleSpriteImage) return;
-
 	// 샘플 영역 배경 및 테두리
 	HBRUSH sampleBgBrush = CreateSolidBrush(RGB(240,240,240));
 	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc,sampleBgBrush);
 	HPEN samplePen = CreatePen(PS_SOLID,2,RGB(150,50,50));
 	HPEN oldPen = (HPEN)SelectObject(hdc,samplePen);
 
-	// 샘플 영역 크기 계산 (더 많은 요소를 표시하기 위해)
-	int totalHeight = sampleSpriteArea.bottom - sampleSpriteArea.top;
-	int newBottom = sampleSpriteArea.top + totalHeight + 400; // 더 많은 공간 확보
-
-	// 샘플 영역 배경
+	// 샘플 영역 배경 (sampleSpriteArea 가 콘텐츠 전체를 덮도록 Init 에서 산출됨)
 	Rectangle(hdc,sampleSpriteArea.left-5,sampleSpriteArea.top-25,
-			  sampleSpriteArea.right+5,newBottom);
+			  sampleSpriteArea.right+5,sampleSpriteArea.bottom+5);
 
-	// 샘플 영역 제목
+	// 패널 제목
 	SetBkMode(hdc,TRANSPARENT);
 	SetTextColor(hdc,RGB(0,0,0));
 	HFONT titleFont = CreateFont(18,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,
@@ -314,182 +385,80 @@ void EditorView::RenderSampleSprites(HDC hdc, const EditorModel& model, const Ed
 	SelectObject(hdc,oldFont);
 	DeleteObject(titleFont);
 
-	// 스프라이트 타입 레이블 그리기
+	// 섹션/슬롯 레이블 폰트
 	HFONT labelFont = CreateFont(14,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,
 							  DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
 							  DEFAULT_QUALITY,DEFAULT_PITCH | FF_DONTCARE,TEXT("Arial"));
 	oldFont = (HFONT)SelectObject(hdc,labelFont);
 
-	// 스프라이트 크기 계산
-	int spriteWidth = sampleSpriteImage->GetFrameWidth();
-	int spriteHeight = sampleSpriteImage->GetFrameHeight();
+	// === 공유 지오메트리 (MapEditor::HandleInput 의 히트테스트와 동일 산식) ===
+	const int slotPitchX = SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_X;
+	const int rowPitch   = SPRITE_THUMB_SLOT + SPRITE_THUMB_GAP_Y;
+	const int areaLeft   = sampleSpriteArea.left;
+	const int areaTop    = sampleSpriteArea.top;
 
-	// 카테고리별 Y 오프셋
-	int categoryPadding = 0;
-	int currentY = sampleSpriteArea.top;
+	const int itemsSectionH = SPRITE_SECTION_TITLE_H + 3 * rowPitch;
+	const int monsterSectionH = SPRITE_SECTION_TITLE_H + 1 * rowPitch;
+
+	const int itemsTitleY    = areaTop;
+	const int monsterTitleY  = itemsTitleY + itemsSectionH;
+	const int obstacleTitleY = monsterTitleY + monsterSectionH;
 
 	// === 아이템 섹션 ===
-	TextOut(hdc,sampleSpriteArea.left,currentY,L"ITEMS:",6);
-	currentY += 20;
-
-	// 아이템 종류 (4개)
+	SetTextColor(hdc,RGB(0,0,0));
+	TextOut(hdc,areaLeft,itemsTitleY,L"ITEMS:",6);
 	const LPCWSTR itemLabels[] = {L"Key",L"Phone",L"Insight",L"Stun",L"Poo",
 		L"Sowha",L"Pipe",L"Drumtong",L"Trash"};
-	const int itemCount = 9;
+	const int itemContentTop = itemsTitleY + SPRITE_SECTION_TITLE_H;
+	for(int i = 0; i < 9; i++)
+	{
+		int row = i / SPRITE_ITEMS_PER_ROW;
+		int col = i % SPRITE_ITEMS_PER_ROW;
+		int slotLeft = areaLeft + col * slotPitchX;
+		int slotTop  = itemContentTop + row * rowPitch;
 
-	// 한 행에 표시할 아이템 수
-	const int itemsPerRow = 4;
-
-	for(int i = 0; i < itemCount; i++) {
-		int row = i / itemsPerRow;
-		int col = i % itemsPerRow;
-
-		int posX = sampleSpriteArea.left + col * (spriteWidth + 20) + spriteWidth/2;
-		int posY = currentY + row * (spriteHeight + 30) + spriteHeight/2;
-
-		// 아이템 스프라이트 그리기 (타일시트의 첫 번째 행 사용)
-		sampleSpriteImage->FrameRender(
-			hdc,
-			posX,
-			posY,
-			i % 5, i / 5, // x, y는 타일시트 좌표
-			false,true
-		);
-
-		// 레이블 그리기
-		SetTextColor(hdc,RGB(0,0,0));
-		TextOut(hdc,
-			  posX - (wcslen(itemLabels[i])) * 2, // 텍스트 길이에 따라 중앙 정렬
-			  posY + spriteHeight/2 + 5,
-			  itemLabels[i],
-			  wcslen(itemLabels[i]));
-
-		// 선택된 스프라이트 표시
-		if(s.isSpriteSelected
+		bool selected = s.isSpriteSelected
 			&& (s.selectedSpriteType == SpriteType::KEY
 				|| s.selectedSpriteType == SpriteType::ITEM
 				|| s.selectedSpriteType == SpriteType::NONE)
-			&& s.selectedSprite.x == i && s.selectedSprite.y == 0) {
-			HPEN selectionPen = CreatePen(PS_SOLID,3,RGB(255,50,50));
-			HPEN oldSelPen = (HPEN)SelectObject(hdc,selectionPen);
-			SelectObject(hdc,GetStockObject(NULL_BRUSH));
+			&& s.selectedSprite.x == i && s.selectedSprite.y == 0;
 
-			Rectangle(hdc,
-					posX - spriteWidth/2 - 2,
-					posY - spriteHeight/2 - 2,
-					posX + spriteWidth/2 + 2,
-					posY + spriteHeight/2 + 2);
-
-			SelectObject(hdc,oldSelPen);
-			DeleteObject(selectionPen);
-		}
+		DrawPickerSlot(hdc, itemImages[i], slotLeft, slotTop, itemLabels[i], selected, false);
 	}
-
-	// 다음 섹션 위치 계산
-	currentY += (((itemCount + itemsPerRow - 1) / itemsPerRow) * (spriteHeight + 30)) + categoryPadding;
 
 	// === 몬스터 섹션 ===
-	TextOut(hdc,sampleSpriteArea.left,currentY,L"MONSTERS:",9);
-	currentY += 20;
-
-	// 몬스터 (1개)
+	SetTextColor(hdc,RGB(0,0,0));
+	TextOut(hdc,areaLeft,monsterTitleY,L"MONSTERS:",9);
 	const LPCWSTR monsterLabels[] = {L"Ball Man"};
-	const int monsterCount = 1;
+	const int monsterContentTop = monsterTitleY + SPRITE_SECTION_TITLE_H;
+	for(int i = 0; i < 1; i++)
+	{
+		int slotLeft = areaLeft + i * slotPitchX;
+		int slotTop  = monsterContentTop;
 
-	for(int i = 0; i < monsterCount; i++) {
-		int posX = sampleSpriteArea.left + i * (spriteWidth + 20) + spriteWidth/2;
-		int posY = currentY + spriteHeight/2;
+		bool selected = s.isSpriteSelected && s.selectedSpriteType == SpriteType::MONSTER
+			&& s.selectedSprite.x == i && s.selectedSprite.y == 1;
 
-		// 몬스터 스프라이트 그리기 (타일시트의 두 번째 행 사용)
-		sampleSpriteImage->FrameRender(
-			hdc,
-			posX,
-			posY,
-			i,0, // x, y는 타일시트 좌표
-			false,true
-		);
-
-		// 레이블 그리기
-		SetTextColor(hdc,RGB(0,0,0));
-		TextOut(hdc,
-			  posX - (wcslen(monsterLabels[i]) * 2),
-			  posY + spriteHeight/2 + 5,
-			  monsterLabels[i],
-			  wcslen(monsterLabels[i]));
-
-		// 선택된 스프라이트 표시
-		if(s.isSpriteSelected && s.selectedSpriteType == SpriteType::MONSTER &&
-		   s.selectedSprite.x == i && s.selectedSprite.y == 1) {
-			HPEN selectionPen = CreatePen(PS_SOLID,3,RGB(255,50,50));
-			HPEN oldSelPen = (HPEN)SelectObject(hdc,selectionPen);
-			SelectObject(hdc,GetStockObject(NULL_BRUSH));
-
-			Rectangle(hdc,
-					posX - spriteWidth/2 - 2,
-					posY - spriteHeight/2 - 2,
-					posX + spriteWidth/2 + 2,
-					posY + spriteHeight/2 + 2);
-
-			SelectObject(hdc,oldSelPen);
-			DeleteObject(selectionPen);
-		}
+		DrawPickerSlot(hdc, monsterImages[i], slotLeft, slotTop, monsterLabels[i], selected, false);
 	}
 
-	// 다음 섹션 위치 계산
-	currentY += spriteHeight + 36;
-
 	// === 장애물 섹션 ===
-	TextOut(hdc,sampleSpriteArea.left,currentY,L"OBSTACLES:",10);
-	currentY += 20;
-
-	// 장애물 종류 (6개 + 엘레베이터 1개)
+	SetTextColor(hdc,RGB(0,0,0));
+	TextOut(hdc,areaLeft,obstacleTitleY,L"OBSTACLES:",10);
 	const LPCWSTR obstacleLabels[] = {L"Elevator",L"Pile",L"Final Elevator"};
-	const int obstacleCount = 3;
+	const int obstacleContentTop = obstacleTitleY + SPRITE_SECTION_TITLE_H;
+	for(int i = 0; i < 3; i++)
+	{
+		int row = i / SPRITE_ITEMS_PER_ROW;
+		int col = i % SPRITE_ITEMS_PER_ROW;
+		int slotLeft = areaLeft + col * slotPitchX;
+		int slotTop  = obstacleContentTop + row * rowPitch;
 
-	// 한 행에 표시할 장애물 수
-	const int obstaclesPerRow = 4;
+		bool selected = s.isSpriteSelected && s.selectedSpriteType == SpriteType::OBSTACLE
+			&& s.selectedSprite.x == i && s.selectedSprite.y == 2;
+		bool badge = (i == 2); // Final Elevator: elevator 재사용 — 뱃지로 구분
 
-	for(int i = 0; i < obstacleCount; i++) {
-		int row = i / obstaclesPerRow;
-		int col = i % obstaclesPerRow;
-
-		int posX = sampleSpriteArea.left + col * (spriteWidth + 20) + spriteWidth/2;
-		int posY = currentY + row * (spriteHeight + 30) + spriteHeight/2;
-
-		// 장애물 스프라이트 그리기 (타일시트의 세 번째 행 사용)
-		int spriteY = (i < 4) ? 2 : 3; // 엘레베이터는 별도 행에
-		sampleSpriteImage->FrameRender(
-			hdc,
-			posX,
-			posY,
-			i % 6,spriteY, // x, y는 타일시트 좌표
-			false,true
-		);
-
-		// 레이블 그리기
-		SetTextColor(hdc,RGB(0,0,0));
-		TextOut(hdc,
-			  posX - (wcslen(obstacleLabels[i]) * 2),
-			  posY + spriteHeight/2 + 5,
-			  obstacleLabels[i],
-			  wcslen(obstacleLabels[i]));
-
-		// 선택된 스프라이트 표시
-		if(s.isSpriteSelected && s.selectedSpriteType == SpriteType::OBSTACLE &&
-		   s.selectedSprite.x == i % 6 && s.selectedSprite.y == spriteY) {
-			HPEN selectionPen = CreatePen(PS_SOLID,3,RGB(255,50,50));
-			HPEN oldSelPen = (HPEN)SelectObject(hdc,selectionPen);
-			SelectObject(hdc,GetStockObject(NULL_BRUSH));
-
-			Rectangle(hdc,
-					posX - spriteWidth/2 - 2,
-					posY - spriteHeight/2 - 2,
-					posX + spriteWidth/2 + 2,
-					posY + spriteHeight/2 + 2);
-
-			SelectObject(hdc,oldSelPen);
-			DeleteObject(selectionPen);
-		}
+		DrawPickerSlot(hdc, obstacleImages[i], slotLeft, slotTop, obstacleLabels[i], selected, badge);
 	}
 
 	SelectObject(hdc,oldPen);
