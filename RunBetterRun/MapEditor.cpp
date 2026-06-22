@@ -14,7 +14,11 @@ HRESULT MapEditor::Init()
 	m_model.InitDefault(VISIBLE_MAP_WIDTH,VISIBLE_MAP_HEIGHT);
 
 	// 이미지 로드 + RECT 레이아웃은 View가 담당
-	return m_view.Init();
+	HRESULT hr = m_view.Init();
+
+	// 진입 시 마지막 저장 맵(EditorMap.dat) 자동 로드 — 없으면 빈 기본 맵 유지
+	m_controller.LoadInitial(m_model,m_view,L"Map/EditorMap.dat");
+	return hr;
 }
 
 void MapEditor::Release()

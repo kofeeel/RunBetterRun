@@ -22,6 +22,7 @@ public:
 	void Update(EditorModel& model, EditorView& view);   // 커서 갱신 + ESC + 드래그영역 + HandleInput
 	EditorViewState BuildViewState() const;              // View 렌더용 상태 스냅샷
 	void Zoom(float delta, EditorModel& model, EditorView& view); // 외부(Ctrl+휠) 줌 진입점
+	void LoadInitial(EditorModel& model, EditorView& view, const wchar_t* filePath); // 진입 시 자동 로드(팝업 없음)
 
 private:
 	// 에디터 상태

@@ -494,6 +494,23 @@ void EditorController::LoadMap(EditorModel& model, EditorView& view, const wchar
 	MessageBox(g_hWnd,TEXT("Map loaded successfully!"),TEXT("Success"),MB_OK);
 }
 
+void EditorController::LoadInitial(EditorModel& model, EditorView& view, const wchar_t* filePath)
+{
+	// 에디터 진입 시 자동 로드: L키와 달리 팝업 없음, 파일 없으면(첫 실행 등) 빈 기본 맵 유지
+	if(!EditorSerializer::Load(model,filePath))
+		return;
+
+	view.ResetCamera();
+	selectedTile = {0,0};
+	isSpriteSelected = false;
+	selectedSprite = {0,0};
+	isDragging = false;
+	isDraggingArea = false;
+	currentMode = EditMode::TILE;
+	selectedTileType = RoomType::FLOOR;
+	selectedObstacleDir = Direction::EAST;
+}
+
 void EditorController::LoadMapFrom(EditorModel& model, EditorView& view)
 {
 	OPENFILENAME ofn;
